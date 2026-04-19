@@ -1,0 +1,82 @@
+##/
+ # @File: docker-compose.yml
+ # @Author: Dominik Vondruška
+ # @Project: Bakalářská práce — Systém pro monitorování otevřených dat v reálném čase
+ # @Description: Soubor byl převzat z původního systému RIOT a doplněn o nové služby a upraven. 
+##/
+
+version: '3'
+
+services:
+#  datex-server:
+#    build:
+#      context: ./backend
+#      dockerfile: datex-downloader/Dockerfile
+#    ports:
+#      - "8000:8000"
+#    volumes:
+#      - ./data/ndic_messages:/app/ndic_messages
+#      - ./data/statistics.json:/app/statistics.json
+#    restart: unless-stopped
+
+  myrta-gtfs-backend:
+    build:
+      context: ./backend
+      dockerfile: gtfs-core/Dockerfile
+    ports:
+      - "9100:9100"
+    volumes:
+      - ./backend/gtfs-core/static_data:/app/static_data
+      - ./backend/gtfs-core/trip_key_map.csv:/app/trip_key_map.csv
+    restart: unless-stopped
+    networks:
+      default:
+        aliases:
+          - gtfs-backend
+
+  myrta-tmc-backend:
+      build:
+        context: ./backend
+        dockerfile: tmc-core/Dockerfile
+      ports:
+        - "9200:9200"
+      volumes:
+        - ./backend/tmc-core/static_data:/app/static_data
+        - ./backend/tmc-core/src:/app/src
+      restart: unless-stopped
+
+  myrta-ndic-preprocessor:
+    build:
+      context: ./backend
+      dockerfile: ndic-preprocessor/Dockerfile
+    environment:
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      BACKEND_CORE_URL: ${BACKEND_CORE_URL}
+    depends_on:
+      - myrta-tmc-backend
+    restart: unless-stopped
+
+  myrta-wazejam-preprocessor:
+    build:
+      context: ./backend
+      dockerfile: WazeJam_preprocessor/Dockerfile
+    environment:
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      BACKEND_CORE_URL: ${BACKEND_CORE_URL}
+    restart: unless-stopped
+
+  myrta-mhd-preprocessor:
+    build:
+      context: ./backend
+      dockerfile: mhd-preprocessor/Dockerfile
+    environment:
+      RABBITMQ_URL: ${RABBITMQ_URL}
+      BACKEND_CORE_URL: ${BACKEND_CORE_URL}
+    depends_on:
+      - myrta-gtfs-backend
+    restart: unless-stopped
+
+networks:
+  default:
+    external: true
+    name: riot_default

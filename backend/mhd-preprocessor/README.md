@@ -1,7 +1,7 @@
 # MHD Preprocessor
 
 **MHD Preprocessor** je modul systému, který zpracovává real‑time data o poloze vozidel městské hromadné dopravy v Brně.  
-Přijímá stream dat z městského WebSocketu, vyhodnocuje je, páruje s GTFS daty a odesílá do systému zprávy o KPI a registraci SD instancí.
+Preferuje živý WebSocket stream, při jeho výpadku nebo delší neaktivitě automaticky přepne na REST polling, data dál páruje s GTFS a odesílá do systému zprávy o KPI a registraci SD instancí.
 
 ---
 
@@ -14,13 +14,14 @@ Přijímá stream dat z městského WebSocketu, vyhodnocuje je, páruje s GTFS d
 
 ## Hlavní funkce
 - **WebSocket listener** – kontinuálně přijímá polohová data z endpointu GIS Brno.  
-- **Integrace s GTFS Core** – pro získání stabilního hashe (`resolve-trip-hash`) k jednoznačné identifikaci spoje.  
+- **REST polling fallback** – pokud WebSocket nepřináší data nebo je nedostupný, modul přejde na polling ArcGIS FeatureServeru a stejná data žene stejnou zpracovatelskou pipeline.  
+- **Vestavěný GTFS enricher** – periodicky stahuje GTFS archiv, sestavuje interní definice spojů a zajišťuje stabilní identifikaci jízd bez potřeby samostatné služby `gtfs-core`.  
 - **RabbitMQ komunikace** – odesílá KPI a registrační zprávy, přijímá aktualizace seznamů SD typů a instancí.  
 
 ---
 
 ## Datové toky
-- **Vstup:** WebSocket stream `wss://gis.brno.cz/geoevent/...` s daty o poloze MHD.  
+- **Vstup:** preferovaný WebSocket stream `wss://gis.brno.cz/geoevent/...` a fallback REST polling ArcGIS `FeatureServer/query`.  
 - **Výstup:** RabbitMQ fronty:
   - `KPIFulfillmentCheckRequestsQueue` – KPI požadavky.  
   - `SDInstanceRegistrationRequestsQueue` – registrace nových SD instancí.
@@ -28,12 +29,21 @@ Přijímá stream dat z městského WebSocketu, vyhodnocuje je, páruje s GTFS d
 ---
 
 ## Struktura projektu
-- **main.go** – hlavní soubor, nastavuje spojení (WebSocket, RabbitMQ) a spouští zpracování.  
-- **processWebSocketMessage** – logika pro zpracování zpráv (parsování atributů, příprava KPI, registrace SD instance).  
-- **resolveStableTripHash** – dotaz na GTFS Core pro získání stabilního identifikátoru spoje.  
+- **main.go** – hlavní soubor, nastavuje spojení (WebSocket, polling fallback, RabbitMQ) a spouští zpracování.  
+- **processWebSocketMessage / poll_source.go** – logika pro přijetí zpráv z WebSocketu i pollingu a jejich převedení na společný interní záznam.  
+- **gtfs_store.go** – lokální načítání a parsování GTFS dat a sestavení stabilních definic jízd.  
+
+---
+
+## Konfigurace fallbacku
+- `MHD_WS_URL` – volitelný override preferovaného WebSocket endpointu.
+- `MHD_POLLING_URL` – volitelný override REST endpointu pro polling fallback.
+- `MHD_GTFS_URL` – volitelný override GTFS archivu.
+
+Časování fallbacku, polling interval, reconnect delay a ostatní režijní hodnoty jsou záměrně definované jen v interním configu preprocessoru jako konstanty v `config.go`, ne přes ENV.
 
 ---
 
 ## Kontext použití
 MHD Preprocessor funguje jako **real‑time most** mezi živým datovým tokem MHD a backendem.  
-Díky tomu systém získává v reálném čase informace o provozu MHD a dokáže je využít k vyhodnocování KPI a správě SD instancí.
+Díky vlastnímu zpracování GTFS i živých WebSocket zpráv může modul fungovat samostatně bez odděleného GTFS modulu a systém tak získává v reálném čase informace o provozu MHD pro vyhodnocování KPI a správu SD instancí.

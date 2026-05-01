@@ -17,7 +17,21 @@ var (
 	instanceStates        = make(map[string]*runtimeInstanceState)
 	instanceStatesMutex   sync.Mutex
 	preprocessorStartedAt = time.Now().UTC()
+	sourceMode            = "wss"
+	sourceModeMutex       sync.Mutex
 )
+
+func setSourceMode(mode string) {
+	sourceModeMutex.Lock()
+	sourceMode = mode
+	sourceModeMutex.Unlock()
+}
+
+func getSourceMode() string {
+	sourceModeMutex.Lock()
+	defer sourceModeMutex.Unlock()
+	return sourceMode
+}
 
 func checkForSetOfSDInstancesUpdates(client rabbitmq.Client) {
 	err := rabbitmq.ConsumeJSONMessages[sharedModel.SDInstanceConfigurationUpdateISCMessage](
@@ -74,7 +88,6 @@ func processMatchedRecord(client rabbitmq.Client, config appConfig, match *tripM
 	}
 	wasActive := state.CurrentlyActive
 	needsSyntheticStart := !state.SeenSinceStart &&
-		record.SourceTimestamp.After(preprocessorStartedAt) &&
 		time.Since(preprocessorStartedAt) > config.StartupGracePeriod
 	now := time.Now().UTC()
 	shouldPublishActive := !wasActive || state.LastActivePublishAt.IsZero() || now.Sub(state.LastActivePublishAt) >= config.ActivePublishInterval
@@ -91,11 +104,15 @@ func processMatchedRecord(client rabbitmq.Client, config appConfig, match *tripM
 	instanceStatesMutex.Unlock()
 
 	if needsSyntheticStart {
-		publishState(client, match.Definition.UID, jitterTime(preprocessorStartedAt, config.SyntheticJitter), buildInactiveParams(tags))
+		publishStates(client, []sharedModel.KPIFulfillmentCheckRequestISCMessage{
+			buildStateMessage(match.Definition.UID, jitterTime(preprocessorStartedAt, config.SyntheticJitter), buildInactiveParams(tags)),
+		})
 	}
 
 	if shouldPublishActive {
-		publishState(client, match.Definition.UID, record.SourceTimestamp, buildActiveParams(tags, record, segment))
+		publishStates(client, []sharedModel.KPIFulfillmentCheckRequestISCMessage{
+			buildStateMessage(match.Definition.UID, record.SourceTimestamp, buildActiveParams(tags, record, segment)),
+		})
 	}
 }
 
@@ -110,21 +127,32 @@ func closeExpiredInstances(client rabbitmq.Client, config appConfig, now time.Ti
 
 	instanceStatesMutex.Lock()
 	for _, state := range instanceStates {
-		if !state.CurrentlyActive || state.CloseAt.IsZero() || state.CloseAt.After(now) {
+		if !state.CurrentlyActive {
+			continue
+		}
+		shouldCloseByTripEnd := !state.CloseAt.IsZero() && !state.CloseAt.After(now)
+		shouldCloseByStaleInput := getSourceMode() == "poll" && !state.LastSourceTime.IsZero() && now.Sub(state.LastSourceTime) >= config.PollingStaleTimeout
+		if !shouldCloseByTripEnd && !shouldCloseByStaleInput {
 			continue
 		}
 
 		state.CurrentlyActive = false
 		state.LastActivePublishAt = time.Time{}
+		closeTime := state.CloseAt
+		if shouldCloseByStaleInput {
+			closeTime = now
+		}
 		toClose = append(toClose, closingPayload{
 			UID:  state.UID,
 			Tags: cloneTags(state.Tags),
-			Time: jitterTime(state.CloseAt, config.SyntheticJitter),
+			Time: jitterTime(closeTime, config.SyntheticJitter),
 		})
 	}
 	instanceStatesMutex.Unlock()
 
 	for _, item := range toClose {
-		publishState(client, item.UID, item.Time, buildInactiveParams(item.Tags))
+		publishStates(client, []sharedModel.KPIFulfillmentCheckRequestISCMessage{
+			buildStateMessage(item.UID, item.Time, buildInactiveParams(item.Tags)),
+		})
 	}
 }

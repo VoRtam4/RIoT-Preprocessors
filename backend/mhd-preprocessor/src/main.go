@@ -6,12 +6,15 @@ import (
 	"time"
 
 	"github.com/MichalBures-OG/bp-bures-RIoT-commons/src/rabbitmq"
+	"github.com/MichalBures-OG/bp-bures-RIoT-commons/src/sharedModel"
 )
 
 func main() {
 	log.SetOutput(os.Stderr)
 
 	config := loadConfig()
+	log.Printf("[MHD] Configured WebSocket endpoints: %v", config.WSURLs)
+	log.Printf("[MHD] Polling fallback endpoint: %s", config.PollingURL)
 	client := rabbitmq.NewClient()
 	defer client.Dispose()
 
@@ -27,7 +30,7 @@ func main() {
 
 	go refreshGTFSPolling(client, store, config)
 	go closingLoop(client, config)
-	runWebSocketLoop(client, store, config)
+	runPrimarySourceLoop(client, store, config)
 }
 
 func refreshGTFSPolling(client rabbitmq.Client, store *GTFSStore, config appConfig) {
@@ -44,6 +47,7 @@ func refreshGTFSPolling(client rabbitmq.Client, store *GTFSStore, config appConf
 }
 
 func registerCurrentWeekInstances(client rabbitmq.Client, store *GTFSStore) {
+	messages := make([]sharedModel.SDInstanceRegistrationRequestISCMessage, 0)
 	for _, uid := range store.weekUIDs() {
 		if store.isWeekUIDRegistered(uid) {
 			continue
@@ -54,9 +58,13 @@ func registerCurrentWeekInstances(client rabbitmq.Client, store *GTFSStore) {
 		if definition == nil {
 			continue
 		}
-		registerInstanceIfNeeded(client, definition.UID, definition.Label)
+		if shouldRegisterInstance(definition.UID) {
+			messages = append(messages, buildSDInstanceRegistrationMessage(definition.UID, definition.Label))
+			markInstanceRegistered(definition.UID)
+		}
 		store.markWeekUIDRegistered(uid)
 	}
+	publishSDInstanceRegistrations(client, messages)
 }
 
 func closingLoop(client rabbitmq.Client, config appConfig) {

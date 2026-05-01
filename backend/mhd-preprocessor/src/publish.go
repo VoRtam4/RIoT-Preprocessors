@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"log"
-	"strconv"
 	"strings"
 	"time"
 
@@ -12,6 +11,8 @@ import (
 	"github.com/MichalBures-OG/bp-bures-RIoT-commons/src/sharedModel"
 	"github.com/MichalBures-OG/bp-bures-RIoT-commons/src/sharedUtils"
 )
+
+const publishBatchLimit = 500
 
 func buildTripTags(definition *tripDefinition, occurrence tripOccurrence, record *liveRecord, segment *segmentMatch) map[string]string {
 	serviceDaysJSON, err := json.Marshal(definition.ServiceDays)
@@ -34,12 +35,6 @@ func buildTripTags(definition *tripDefinition, occurrence tripOccurrence, record
 		"serviceDays":    string(serviceDaysJSON),
 	}
 
-	if segment != nil {
-		tags["segment_index"] = strconv.Itoa(segment.Index)
-		tags["segment_from_stop_id"] = segment.From.ID
-		tags["segment_to_stop_id"] = segment.To.ID
-	}
-
 	return tags
 }
 
@@ -58,7 +53,8 @@ func buildActiveParams(tags map[string]string, record *liveRecord, segment *segm
 	params["bearing"] = record.Bearing
 	params["delay"] = record.Delay
 	if segment != nil {
-		params["segment_progress"] = segment.Progress
+		params["segment_from_stop_id"] = segment.From.ID
+		params["segment_to_stop_id"] = segment.To.ID
 	}
 	params["isinactive"] = false
 	return params
@@ -78,27 +74,45 @@ func tagsToParams(tags map[string]string) map[string]interface{} {
 	return params
 }
 
-func publishState(client rabbitmq.Client, uid string, eventTime time.Time, params map[string]interface{}) {
-	message := sharedModel.KPIFulfillmentCheckRequestISCMessage{
+func buildStateMessage(uid string, eventTime time.Time, params map[string]interface{}) sharedModel.KPIFulfillmentCheckRequestISCMessage {
+	return sharedModel.KPIFulfillmentCheckRequestISCMessage{
 		EventTime:     eventTime.UTC(),
 		SDInstanceUID: uid,
 		SDTypeUID:     mhdSDTypeUID,
 		Parameters:    params,
 	}
+}
 
-	jsonResult := sharedUtils.SerializeToJSON(message)
-	if jsonResult.IsFailure() {
-		log.Printf("[MHD] Failed to serialize state for %s: %v", uid, jsonResult.GetError())
-		return
-	}
-
-	if err := client.PublishJSONMessage(
+func publishStates(client rabbitmq.Client, messages []sharedModel.KPIFulfillmentCheckRequestISCMessage) {
+	if err := rabbitmq.PublishJSONBatches(
+		client,
 		sharedUtils.NewEmptyOptional[string](),
 		sharedUtils.NewOptionalOf(sharedConstants.KPIFulfillmentCheckRequestsQueueName),
-		jsonResult.GetPayload(),
+		messages,
+		publishBatchLimit,
 	); err != nil {
-		log.Printf("[MHD] Failed to publish state for %s: %v", uid, err)
-		return
+		log.Printf("[MHD] Failed to publish state tuple: %v", err)
+	}
+}
+
+func buildSDInstanceRegistrationMessage(uid string, label string) sharedModel.SDInstanceRegistrationRequestISCMessage {
+	return sharedModel.SDInstanceRegistrationRequestISCMessage{
+		EventTime:     time.Now().UTC(),
+		Label:         label,
+		SDInstanceUID: uid,
+		SDTypeUID:     mhdSDTypeUID,
+	}
+}
+
+func publishSDInstanceRegistrations(client rabbitmq.Client, messages []sharedModel.SDInstanceRegistrationRequestISCMessage) {
+	if err := rabbitmq.PublishJSONBatches(
+		client,
+		sharedUtils.NewEmptyOptional[string](),
+		sharedUtils.NewOptionalOf(sharedConstants.SDInstanceRegistrationRequestsQueueName),
+		messages,
+		publishBatchLimit,
+	); err != nil {
+		log.Printf("[MHD] Failed to publish SD instance registration tuple: %v", err)
 	}
 }
 
@@ -107,27 +121,7 @@ func registerInstanceIfNeeded(client rabbitmq.Client, uid string, label string) 
 		return
 	}
 
-	message := sharedModel.SDInstanceRegistrationRequestISCMessage{
-		EventTime:     time.Now().UTC(),
-		Label:         label,
-		SDInstanceUID: uid,
-		SDTypeUID:     mhdSDTypeUID,
-	}
-
-	jsonMessage := sharedUtils.SerializeToJSON(message)
-	if jsonMessage.IsFailure() {
-		log.Printf("[MHD] Failed to serialize SD instance registration for %s: %v", uid, jsonMessage.GetError())
-		return
-	}
-
-	if err := client.PublishJSONMessage(
-		sharedUtils.NewEmptyOptional[string](),
-		sharedUtils.NewOptionalOf(sharedConstants.SDInstanceRegistrationRequestsQueueName),
-		jsonMessage.GetPayload(),
-	); err != nil {
-		log.Printf("[MHD] Failed to register SD instance %s: %v", uid, err)
-		return
-	}
+	publishSDInstanceRegistrations(client, []sharedModel.SDInstanceRegistrationRequestISCMessage{buildSDInstanceRegistrationMessage(uid, label)})
 
 	markInstanceRegistered(uid)
 	log.Printf("[MHD] Registered SD instance: %s", uid)

@@ -15,6 +15,7 @@ type liveRecord struct {
 	SourceTimestamp  time.Time
 	GeometryLat      float64
 	GeometryLng      float64
+	ObjectID         string
 	GlobalID         string
 	VehicleRuntimeID string
 	VehicleType      string

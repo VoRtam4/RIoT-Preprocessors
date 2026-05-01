@@ -1,14 +1,17 @@
 package main
 
 import (
+	"net/url"
 	"os"
-	"strconv"
+	"path"
+	"slices"
 	"strings"
 	"time"
 )
 
 const (
-	defaultWSURL                 = "wss://gis.brno.cz/geoevent/ws/services/stream_kordis_26/StreamServer/subscribe"
+	defaultWSURL                 = "wss://gis.brno.cz/geoevent/ws/services/stream_kordis_26/StreamServer/subscribe?outSR=4326"
+	defaultPollingURL            = "https://gis.brno.cz/ags1/rest/services/Hosted/Kordis_26_polohy/FeatureServer/0/query"
 	defaultGTFSURL               = "https://kordis-jmk.cz/gtfs/gtfs.zip"
 	defaultGTFSLocation          = "Europe/Prague"
 	mhdSDTypeUID                 = "MHD_TRIP"
@@ -20,11 +23,19 @@ const (
 	defaultSyntheticJitter       = 500 * time.Millisecond
 	defaultClosingLoopInterval   = 2 * time.Second
 	defaultReconnectDelay        = 5 * time.Second
-	defaultActivePublishInterval = 90 * time.Second
+	defaultActivePublishInterval = 1 * time.Minute
+	defaultWSNoDataFallback      = 5 * time.Minute
+	defaultPollingInterval       = 10 * time.Second
+	defaultPollingHTTPTimeout    = 30 * time.Second
+	defaultPollingResultLimit    = 30000
+	defaultWSPollingRetryDelay   = 30 * time.Second
+	defaultWSPollingProbeTimeout = 10 * time.Second
+	defaultPollingStaleTimeout   = 30 * time.Second
 )
 
 type appConfig struct {
-	WSURL                 string
+	WSURLs                []string
+	PollingURL            string
 	GTFSURL               string
 	GTFSLocation          *time.Location
 	GTFSRefreshInterval   time.Duration
@@ -35,70 +46,92 @@ type appConfig struct {
 	ClosingLoopInterval   time.Duration
 	ReconnectDelay        time.Duration
 	ActivePublishInterval time.Duration
+	WSNoDataFallback      time.Duration
+	PollingInterval       time.Duration
+	PollingHTTPTimeout    time.Duration
+	PollingResultLimit    int
+	WSPollingRetryDelay   time.Duration
+	WSPollingProbeTimeout time.Duration
+	PollingStaleTimeout   time.Duration
 }
 
 func loadConfig() appConfig {
-	locationName := getEnv("MHD_GTFS_TIMEZONE", defaultGTFSLocation)
-	location, err := time.LoadLocation(locationName)
+	location, err := time.LoadLocation(defaultGTFSLocation)
 	if err != nil {
 		location = time.FixedZone(defaultGTFSLocation, 3600)
 	}
 
 	return appConfig{
-		WSURL:                 normalizeStreamWSURL(getEnv("MHD_WS_URL", defaultWSURL)),
+		WSURLs:                loadStreamWSURLs(),
+		PollingURL:            getEnv("MHD_POLLING_URL", defaultPollingURL),
 		GTFSURL:               getEnv("MHD_GTFS_URL", defaultGTFSURL),
 		GTFSLocation:          location,
-		GTFSRefreshInterval:   getEnvDurationMinutes("MHD_GTFS_REFRESH_MINUTES", defaultGTFSRefreshInterval),
-		TripEndReserve:        getEnvDurationMinutes("MHD_TRIP_END_RESERVE_MINUTES", defaultTripEndReserve),
-		MatchingWindow:        getEnvDurationMinutes("MHD_MATCHING_WINDOW_MINUTES", defaultMatchingWindow),
-		StartupGracePeriod:    getEnvDurationSeconds("MHD_STARTUP_GRACE_SECONDS", defaultStartupGracePeriod),
-		SyntheticJitter:       getEnvDurationMilliseconds("MHD_SYNTHETIC_JITTER_MS", defaultSyntheticJitter),
-		ClosingLoopInterval:   getEnvDurationSeconds("MHD_CLOSING_LOOP_SECONDS", defaultClosingLoopInterval),
-		ReconnectDelay:        getEnvDurationSeconds("MHD_RECONNECT_DELAY_SECONDS", defaultReconnectDelay),
-		ActivePublishInterval: getEnvDurationSeconds("MHD_ACTIVE_PUBLISH_SECONDS", defaultActivePublishInterval),
+		GTFSRefreshInterval:   defaultGTFSRefreshInterval,
+		TripEndReserve:        defaultTripEndReserve,
+		MatchingWindow:        defaultMatchingWindow,
+		StartupGracePeriod:    defaultStartupGracePeriod,
+		SyntheticJitter:       defaultSyntheticJitter,
+		ClosingLoopInterval:   defaultClosingLoopInterval,
+		ReconnectDelay:        defaultReconnectDelay,
+		ActivePublishInterval: defaultActivePublishInterval,
+		WSNoDataFallback:      defaultWSNoDataFallback,
+		PollingInterval:       defaultPollingInterval,
+		PollingHTTPTimeout:    defaultPollingHTTPTimeout,
+		PollingResultLimit:    defaultPollingResultLimit,
+		WSPollingRetryDelay:   defaultWSPollingRetryDelay,
+		WSPollingProbeTimeout: defaultWSPollingProbeTimeout,
+		PollingStaleTimeout:   defaultPollingStaleTimeout,
 	}
 }
 
+func loadStreamWSURLs() []string {
+	rawCandidates := make([]string, 0, 2)
+
+	if value := getEnv("MHD_WS_URL", ""); value != "" {
+		rawCandidates = append(rawCandidates, value)
+	}
+	rawCandidates = append(rawCandidates, defaultWSURL)
+
+	normalized := make([]string, 0, len(rawCandidates))
+	for _, candidate := range rawCandidates {
+		value := normalizeStreamWSURL(candidate)
+		if value == "" || slices.Contains(normalized, value) {
+			continue
+		}
+		normalized = append(normalized, value)
+	}
+
+	if len(normalized) == 0 {
+		return []string{normalizeStreamWSURL(defaultWSURL)}
+	}
+
+	return normalized
+}
+
 func normalizeStreamWSURL(value string) string {
+	value = strings.TrimSpace(value)
 	if value == "" {
-		return defaultWSURL
+		return ""
 	}
-	if strings.HasSuffix(value, "/subscribe") {
-		return value
+
+	parsed, err := url.Parse(value)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		if strings.HasSuffix(value, "/subscribe") {
+			return value
+		}
+		return strings.TrimRight(value, "/") + "/subscribe"
 	}
-	return strings.TrimRight(value, "/") + "/subscribe"
+
+	if !strings.HasSuffix(strings.ToLower(parsed.Path), "/subscribe") {
+		parsed.Path = path.Clean(strings.TrimRight(parsed.Path, "/") + "/subscribe")
+	}
+
+	return parsed.String()
 }
 
 func getEnv(key string, fallback string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
-	}
-	return fallback
-}
-
-func getEnvDurationMinutes(key string, fallback time.Duration) time.Duration {
-	if value := os.Getenv(key); value != "" {
-		if parsed, err := strconv.Atoi(value); err == nil && parsed > 0 {
-			return time.Duration(parsed) * time.Minute
-		}
-	}
-	return fallback
-}
-
-func getEnvDurationSeconds(key string, fallback time.Duration) time.Duration {
-	if value := os.Getenv(key); value != "" {
-		if parsed, err := strconv.Atoi(value); err == nil && parsed > 0 {
-			return time.Duration(parsed) * time.Second
-		}
-	}
-	return fallback
-}
-
-func getEnvDurationMilliseconds(key string, fallback time.Duration) time.Duration {
-	if value := os.Getenv(key); value != "" {
-		if parsed, err := strconv.Atoi(value); err == nil && parsed >= 0 {
-			return time.Duration(parsed) * time.Millisecond
-		}
 	}
 	return fallback
 }

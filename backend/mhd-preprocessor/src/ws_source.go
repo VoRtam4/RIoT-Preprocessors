@@ -2,7 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"log"
+	"net/http"
+	"net/url"
 	"sync"
 	"time"
 
@@ -14,50 +17,110 @@ var (
 	unmatchedRecordsMu       sync.Mutex
 	unmatchedRecordsLogged   = make(map[string]struct{})
 	unmatchedRecordsLogLimit = 10
+	livePayloadLogMu         sync.Mutex
+	livePayloadsLogged       = 0
+	livePayloadLogLimit      = 5
+	errWebSocketIdle         = errors.New("websocket idle timeout")
 )
 
-func runWebSocketLoop(client rabbitmq.Client, store *GTFSStore, config appConfig) {
-	for {
-		if err := consumeWebSocket(client, store, config); err != nil {
-			log.Printf("[MHD] WebSocket loop failed: %v", err)
+const (
+	wsWriteWait      = 10 * time.Second
+	wsPongWait       = 75 * time.Second
+	wsPingInterval   = 25 * time.Second
+	wsMaxMessageSize = 1 << 20
+)
+
+func consumeAnyWebSocket(client rabbitmq.Client, store *GTFSStore, config appConfig, idleTimeout time.Duration) error {
+	var lastErr error
+
+	for _, wsURL := range config.WSURLs {
+		log.Printf("[MHD] Attempting WebSocket connection: %s", wsURL)
+		if err := consumeWebSocket(client, store, config, wsURL, idleTimeout); err != nil {
+			log.Printf("[MHD] WebSocket endpoint failed: %s | %v", wsURL, err)
+			lastErr = err
+			continue
 		}
-		time.Sleep(config.ReconnectDelay)
 	}
+
+	if lastErr == nil {
+		lastErr = errors.New("no configured websocket endpoints")
+	}
+
+	return lastErr
 }
 
-func consumeWebSocket(client rabbitmq.Client, store *GTFSStore, config appConfig) error {
-	conn, _, err := websocket.DefaultDialer.Dial(config.WSURL, nil)
+func consumeWebSocket(client rabbitmq.Client, store *GTFSStore, config appConfig, wsURL string, idleTimeout time.Duration) error {
+	header := buildWebSocketHeaders(wsURL)
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, header)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
 
-	log.Printf("[MHD] WebSocket connected: %s", config.WSURL)
-	if err := configureStreamFilter(conn); err != nil {
-		return err
-	}
+	conn.SetReadLimit(wsMaxMessageSize)
+	_ = conn.SetReadDeadline(time.Now().Add(wsPongWait))
+	conn.SetPongHandler(func(string) error {
+		return conn.SetReadDeadline(time.Now().Add(wsPongWait))
+	})
+
+	log.Printf("[MHD] WebSocket connected: %s", wsURL)
+	setSourceMode("wss")
+
+	done := make(chan struct{})
+	defer close(done)
+	go keepWebSocketAlive(conn, done)
+
+	activity := make(chan struct{}, 1)
+	idleSignal := make(chan struct{}, 1)
+	go closeQuietStream(conn, done, activity, idleSignal, idleTimeout, wsURL)
 
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
+			select {
+			case <-idleSignal:
+				return errWebSocketIdle
+			default:
+			}
 			return err
 		}
-		processWebSocketMessage(client, store, config, message)
+		_ = conn.SetReadDeadline(time.Now().Add(wsPongWait))
+		processWebSocketMessage(client, store, config, activity, message)
 	}
 }
 
-func processWebSocketMessage(client rabbitmq.Client, store *GTFSStore, config appConfig, message []byte) {
+func buildWebSocketHeaders(wsURL string) http.Header {
+	header := http.Header{}
+
+	parsed, err := url.Parse(wsURL)
+	if err != nil {
+		return header
+	}
+
+	switch parsed.Hostname() {
+	case "gis.brno.cz":
+		header.Set("Origin", "https://gis.brno.cz")
+	}
+
+	return header
+}
+
+func processWebSocketMessage(client rabbitmq.Client, store *GTFSStore, config appConfig, activity chan<- struct{}, message []byte) {
 	envelope, err := parseRawEnvelope(message)
 	if err != nil {
 		log.Printf("[MHD] Failed to parse WebSocket payload: %v", err)
 		return
 	}
-	if isStreamControlMessage(envelope) {
-		log.Printf("[MHD] Stream filter acknowledged")
-		return
+	select {
+	case activity <- struct{}{}:
+	default:
 	}
+	logSampleLivePayload(message)
 
-	record := buildLiveRecord(envelope, message)
+	processLiveRecord(client, store, config, buildLiveRecord(envelope, message))
+}
+
+func processLiveRecord(client rabbitmq.Client, store *GTFSStore, config appConfig, record *liveRecord) {
 	match, ok := matchLiveRecord(store, record, time.Now().UTC(), config.MatchingWindow, config.GTFSLocation)
 	if !ok {
 		logUnmatchedRecord(record)
@@ -67,15 +130,54 @@ func processWebSocketMessage(client rabbitmq.Client, store *GTFSStore, config ap
 	processMatchedRecord(client, config, match, record)
 }
 
-func configureStreamFilter(conn *websocket.Conn) error {
-	if err := conn.WriteJSON(map[string]interface{}{"filter": nil}); err != nil {
-		return err
+func closeQuietStream(conn *websocket.Conn, done <-chan struct{}, activity <-chan struct{}, idleSignal chan<- struct{}, timeout time.Duration, wsURL string) {
+	if timeout < 0 {
+		return
 	}
-	return nil
+
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+
+	for {
+		select {
+		case <-done:
+			return
+		case <-activity:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			timer.Reset(timeout)
+		case <-timer.C:
+			log.Printf("[MHD] No live payload received for %s on %s, reconnecting", timeout, wsURL)
+			select {
+			case idleSignal <- struct{}{}:
+			default:
+			}
+			_ = conn.Close()
+			return
+		}
+	}
 }
 
-func isStreamControlMessage(envelope *rawEnvelope) bool {
-	return envelope != nil && envelope.Attributes == nil && envelope.Filter != nil
+func keepWebSocketAlive(conn *websocket.Conn, done <-chan struct{}) {
+	ticker := time.NewTicker(wsPingInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-done:
+			return
+		case <-ticker.C:
+			_ = conn.SetWriteDeadline(time.Now().Add(wsWriteWait))
+			if err := conn.WriteMessage(websocket.PingMessage, []byte("mhd-keepalive")); err != nil {
+				log.Printf("[MHD] WebSocket ping failed: %v", err)
+				return
+			}
+		}
+	}
 }
 
 func logUnmatchedRecord(record *liveRecord) {
@@ -105,47 +207,73 @@ func logUnmatchedRecord(record *liveRecord) {
 	)
 }
 
-func buildLiveRecord(envelope *rawEnvelope, message []byte) *liveRecord {
-	record := &liveRecord{
-		RawMessage: string(message),
-		Attributes: envelope.Attributes,
+func logSampleLivePayload(message []byte) {
+	livePayloadLogMu.Lock()
+	defer livePayloadLogMu.Unlock()
+
+	if livePayloadsLogged >= livePayloadLogLimit {
+		return
 	}
 
-	if marshaled, err := json.Marshal(envelope); err == nil {
+	livePayloadsLogged++
+	log.Printf("[MHD] Sample live payload %d: %s", livePayloadsLogged, string(message))
+}
+
+func buildLiveRecord(envelope *rawEnvelope, message []byte) *liveRecord {
+	return buildLiveRecordFromPayload(envelope.Attributes, envelope.Geometry, message)
+}
+
+func buildLiveRecordFromPayload(attributes map[string]interface{}, geometry map[string]interface{}, rawMessage []byte) *liveRecord {
+	record := &liveRecord{
+		RawMessage: string(rawMessage),
+		Attributes: attributes,
+	}
+
+	if marshaled, err := json.Marshal(map[string]interface{}{
+		"attributes": attributes,
+		"geometry":   geometry,
+	}); err == nil {
 		record.RawMessage = string(marshaled)
 	}
 
-	record.GlobalID = extractString(lookupAttribute(envelope.Attributes, "globalid"))
-	record.VehicleRuntimeID = extractString(lookupAttribute(envelope.Attributes, "id"))
-	record.VehicleType = extractString(lookupAttribute(envelope.Attributes, "vtype"))
-	record.LineType = extractString(lookupAttribute(envelope.Attributes, "ltype"))
-	record.LineID = extractString(lookupAttribute(envelope.Attributes, "lineid"))
-	record.LineName = extractString(lookupAttribute(envelope.Attributes, "linename"))
-	record.LiveRouteID = extractString(lookupAttribute(envelope.Attributes, "routeid"))
-	record.Course = extractString(lookupAttribute(envelope.Attributes, "course"))
-	record.LowFloor = extractString(lookupAttribute(envelope.Attributes, "lf"))
-	record.LastStopID = extractString(lookupAttribute(envelope.Attributes, "laststopid"))
-	record.FinalStopID = extractString(lookupAttribute(envelope.Attributes, "finalstopid"))
+	record.ObjectID = extractString(lookupAttribute(attributes, "objectid"))
+	record.GlobalID = extractString(lookupAttribute(attributes, "globalid"))
+	record.VehicleRuntimeID = extractString(lookupAttribute(attributes, "id"))
+	record.VehicleType = extractString(lookupAttribute(attributes, "vtype"))
+	record.LineType = extractString(lookupAttribute(attributes, "ltype"))
+	record.LineID = extractString(lookupAttribute(attributes, "lineid"))
+	record.LineName = extractString(lookupAttribute(attributes, "linename"))
+	record.LiveRouteID = extractString(lookupAttribute(attributes, "routeid"))
+	record.Course = extractString(lookupAttribute(attributes, "course"))
+	record.LowFloor = extractString(lookupAttribute(attributes, "lf"))
+	record.LastStopID = extractString(lookupAttribute(attributes, "laststopid"))
+	record.FinalStopID = extractString(lookupAttribute(attributes, "finalstopid"))
 
-	if timestamp, ok := extractUnixMillis(lookupAttribute(envelope.Attributes, "lastupdate", "timeupdated")); ok {
+	if timestamp, ok := extractUnixMillis(lookupAttribute(attributes, "lastupdate", "timeupdated")); ok {
 		record.SourceTimestamp = timestamp
 	} else {
 		record.SourceTimestamp = time.Now().UTC()
 	}
 
-	if value, ok := extractFloat(lookupAttribute(envelope.Attributes, "lat")); ok {
+	if value, ok := extractFloat(lookupAttribute(attributes, "lat")); ok {
 		record.GeometryLat = value
 	}
-	if value, ok := extractFloat(lookupAttribute(envelope.Attributes, "lng")); ok {
+	if value, ok := extractFloat(lookupAttribute(attributes, "lng")); ok {
 		record.GeometryLng = value
 	}
-	if value, ok := extractFloat(lookupAttribute(envelope.Attributes, "bearing")); ok {
+	if value, ok := extractFloat(lookupAttribute(geometry, "y")); ok {
+		record.GeometryLat = value
+	}
+	if value, ok := extractFloat(lookupAttribute(geometry, "x")); ok {
+		record.GeometryLng = value
+	}
+	if value, ok := extractFloat(lookupAttribute(attributes, "bearing")); ok {
 		record.Bearing = value
 	}
-	if value, ok := extractFloat(lookupAttribute(envelope.Attributes, "delay")); ok {
+	if value, ok := extractFloat(lookupAttribute(attributes, "delay")); ok {
 		record.Delay = value
 	}
-	if value, ok := extractBool(lookupAttribute(envelope.Attributes, "isinactive")); ok {
+	if value, ok := extractBool(lookupAttribute(attributes, "isinactive")); ok {
 		record.IsInactive = value
 	}
 

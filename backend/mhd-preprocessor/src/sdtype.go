@@ -20,9 +20,6 @@ func registerSDType(client rabbitmq.Client) {
 		{Denotation: "departure_time", Label: "Departure Time", Type: sharedModel.SDParameterTypeString, Role: sharedModel.SDParameterRoleTag},
 		{Denotation: "from_stop_id", Label: "From Stop ID", Type: sharedModel.SDParameterTypeString, Role: sharedModel.SDParameterRoleTag},
 		{Denotation: "to_stop_id", Label: "To Stop ID", Type: sharedModel.SDParameterTypeString, Role: sharedModel.SDParameterRoleTag},
-		{Denotation: "segment_index", Label: "Segment Index", Type: sharedModel.SDParameterTypeString, Role: sharedModel.SDParameterRoleTag},
-		{Denotation: "segment_from_stop_id", Label: "Segment From Stop ID", Type: sharedModel.SDParameterTypeString, Role: sharedModel.SDParameterRoleTag},
-		{Denotation: "segment_to_stop_id", Label: "Segment To Stop ID", Type: sharedModel.SDParameterTypeString, Role: sharedModel.SDParameterRoleTag},
 		{Denotation: "finalstopid", Label: "Final Stop ID", Type: sharedModel.SDParameterTypeString, Role: sharedModel.SDParameterRoleTag},
 		{Denotation: "vtype", Label: "Vehicle Type", Type: sharedModel.SDParameterTypeString, Role: sharedModel.SDParameterRoleTag},
 		{Denotation: "serviceDays", Label: "Service Days", Type: sharedModel.SDParameterTypeString, Role: sharedModel.SDParameterRoleTag},
@@ -38,7 +35,8 @@ func registerSDType(client rabbitmq.Client) {
 		{Denotation: "lng", Label: "Longitude", Type: sharedModel.SDParameterTypeNumber, Role: sharedModel.SDParameterRoleField},
 		{Denotation: "bearing", Label: "Bearing", Type: sharedModel.SDParameterTypeNumber, Role: sharedModel.SDParameterRoleField},
 		{Denotation: "delay", Label: "Delay", Type: sharedModel.SDParameterTypeNumber, Role: sharedModel.SDParameterRoleField},
-		{Denotation: "segment_progress", Label: "Segment Progress", Type: sharedModel.SDParameterTypeNumber, Role: sharedModel.SDParameterRoleField},
+		{Denotation: "segment_from_stop_id", Label: "Segment From Stop ID", Type: sharedModel.SDParameterTypeString, Role: sharedModel.SDParameterRoleField},
+		{Denotation: "segment_to_stop_id", Label: "Segment To Stop ID", Type: sharedModel.SDParameterTypeString, Role: sharedModel.SDParameterRoleField},
 		{Denotation: "isinactive", Label: "Is Inactive", Type: sharedModel.SDParameterTypeBoolean, Role: sharedModel.SDParameterRoleField},
 	}
 
@@ -48,16 +46,12 @@ func registerSDType(client rabbitmq.Client) {
 		Parameters: parameters,
 	}
 
-	jsonResult := sharedUtils.SerializeToJSON(message)
-	if jsonResult.IsFailure() {
-		log.Printf("[MHD] Failed to serialize SDType registration: %v", jsonResult.GetError())
-		return
-	}
-
-	if err := client.PublishJSONMessage(
+	if err := rabbitmq.PublishJSONBatches(
+		client,
 		sharedUtils.NewEmptyOptional[string](),
 		sharedUtils.NewOptionalOf(sharedConstants.SDTypeRegistrationRequestsQueueName),
-		jsonResult.GetPayload(),
+		[]sharedModel.SDTypeRegistrationRequestISCMessage{message},
+		publishBatchLimit,
 	); err != nil {
 		log.Printf("[MHD] Failed to register SDType: %v", err)
 		return

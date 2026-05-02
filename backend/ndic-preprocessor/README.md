@@ -1,22 +1,23 @@
 # NDIC Preprocessor
 
-**NDIC Preprocessor** je modul systému, který zpracovává real‑time data o dopravních podmínkách z **Národního dopravního informačního centra (NDIC)**.  
-Pravidelně stahuje data z API, parsuje XML/JSON odpovědi, převádí je na standardizované parametry a odesílá výsledky do systému prostřednictvím RabbitMQ.
+**NDIC Preprocessor** zpracovává DATEX II snapshoty uložené službou `datex-downloader`, převádí je do interního stavového modelu systému RIoT a publikuje výsledky přes RabbitMQ.  
+Součástí zpracování je i enrichment z lokálně přibalených TMC tabulek, takže modul nevyžaduje samostatnou službu `tmc-core`.
 
 ---
 
 ## Účel modulu
-- Načítá data o **dopravním stavu** (Traffic Status), **průměrné rychlosti** (Traffic Speed) a **době jízdy** (Travel Time) z NDIC API.
-- Transformuje tyto informace do podoby vhodné pro systém RIoT a mapuje je na **SD instance** (např. NDIC_TRAFFIC_<ID>).
-- Publikuje:
-  - **KPI požadavky** (KPIFulfillmentCheckRequest)
-  - **Žádosti o registraci SD instancí**, pokud jsou zjištěny nové úseky.
+- Periodicky načítá poslední uložený NDIC DATEX snapshot z `datex-downloader`.
+- Parsuje veličiny **Traffic Status**, **Traffic Speed** a **Travel Time** pro `anyVehicle`.
+- Vytváří a průběžně aktualizuje SD instance ve tvaru `NDIC_TRAFFIC_<sourceIdentification>`.
+- Doplňuje stabilní lokalizační metadata z TMC, například lokalizační kód, název bodu, oblast a silnici.
+- Publikuje stavy do front `KPIFulfillmentCheckRequestsQueue` a registrace do `SDInstanceRegistrationRequestsQueue`.
 
 ---
 
 ## Datové toky
 - **Vstup:**  
-  - HTTP endpoint NDIC `http://80.211.200.65:8000/api/latest` (data ve formátu JSON nebo XML).
+  - `datex-downloader` endpoint `/api/latest` nebo `/api/latest.xml`
+  - lokálně přibalená referenční TMC data v adresáři `static_data/tmc`
 - **Výstup:**  
   - RabbitMQ fronty:
     - `KPIFulfillmentCheckRequestsQueue` – KPI požadavky pro zpracování v systému RIoT.
@@ -25,20 +26,23 @@ Pravidelně stahuje data z API, parsuje XML/JSON odpovědi, převádí je na sta
 ---
 
 ## Hlavní funkce
-- **fetchAndProcessNDICData** – stahuje data z API, zpracovává je a připravuje KPI i registrace.
-- **generateKPIRequest** – vytváří KPI požadavek a odesílá ho do RabbitMQ.
-- **generateSDInstanceRegistrationRequest** – registruje nové SD instance do systému.
-- **determineSDInstanceScenario** – určuje, zda je SD instance známá, nepotvrzená, nebo nová.
-- **checkForSetOfSDTypesUpdates / checkForSetOfSDInstancesUpdates** – sledují RabbitMQ fronty a udržují seznam SD typů a instancí aktuální.
+- **fetchAndProcessNDICData** – načte poslední snapshot z downloaderu, spustí parsing a enrichment a publikuje výsledky.
+- **parseNDICXML** – převádí DATEX II XML do interní struktury `parsedFetch`.
+- **tmcEnricher** – načítá TMC body z lokálních referenčních souborů a doplňuje lokalizační metadata do snapshotů.
+- **processFetchResult** – spravuje životní cyklus aktivních a neaktivních instancí.
+- **registerSDType / registerInstanceIfNeeded** – registrace typu a instancí v novém systému.
 
 ---
 
 ## Struktura projektu
-- **main.go** – hlavní program, nastavuje spojení s RabbitMQ, cyklicky spouští stahování NDIC dat.
-- **fetchAndProcessNDICData()** – logika pro parsování XML a přípravu výstupních dat.
+- **main.go** – start služby a plánování periodického zpracování.
+- **fetch.go** – načítání posledního snapshotu z `datex-downloader`.
+- **parser.go** – parsování DATEX II XML a extrakce stavových i lokalizačních dat.
+- **tmc.go** – enrichment snapshotů o metadata z lokálně přibalených TMC dat.
+- **runtime.go / publish.go / sdtype.go** – práce s instancemi a publikace do systému.
 
 ---
 
 ## Kontext použití
-NDIC Preprocessor funguje jako **automatický sběrač dopravních dat** z NDIC a jejich převodník do jednotného formátu pro backend systému.  
-Zajišťuje, že systém má k dispozici nejaktuálnější údaje o stavu dopravy v České republice a může je využívat pro monitorování, reporting a KPI vyhodnocování.
+NDIC Preprocessor představuje stavovou integrační vrstvu mezi uloženými DATEX zprávami a zbytkem platformy RIoT.  
+`datex-downloader` řeší pouze příjem a archivaci push zpráv, zatímco samotný preprocesor zajišťuje interpretaci, TMC enrichment, registraci entit a publikaci do interní komunikační vrstvy.

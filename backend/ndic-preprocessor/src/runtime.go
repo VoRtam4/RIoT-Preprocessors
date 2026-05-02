@@ -58,13 +58,18 @@ func markInstanceRegistered(uid string) {
 
 func processFetchResult(client rabbitmq.Client, config appConfig, fetch *parsedFetch) {
 	currentUIDs := make(map[string]struct{}, len(fetch.Snapshots))
+	stateMessages := make([]sharedModel.KPIFulfillmentCheckRequestISCMessage, 0, len(fetch.Snapshots))
+	registrationMessages := make([]sharedModel.SDInstanceRegistrationRequestISCMessage, 0)
 
 	for sourceID, snapshot := range fetch.Snapshots {
 		uid := ndicInstanceUID(sourceID)
 		currentUIDs[uid] = struct{}{}
 		tags := buildTags(snapshot)
 
-		registerInstanceIfNeeded(client, uid, uid)
+		if shouldRegisterInstance(uid) {
+			registrationMessages = append(registrationMessages, buildSDInstanceRegistrationMessage(uid, uid))
+			markInstanceRegistered(uid)
+		}
 
 		instanceStatesMutex.Lock()
 		state, exists := instanceStates[uid]
@@ -86,16 +91,22 @@ func processFetchResult(client rabbitmq.Client, config appConfig, fetch *parsedF
 		instanceStatesMutex.Unlock()
 
 		if needsSyntheticStart {
-			publishState(client, uid, jitterTime(preprocessorStartedAt, config.SyntheticJitter), buildInactiveParams(tags))
+			stateMessages = append(stateMessages, buildStateMessage(uid, jitterTime(preprocessorStartedAt, config.SyntheticJitter), buildInactiveParams(tags)))
 		}
 
-		publishState(client, uid, fetch.PublicationTime, buildActiveParams(tags, snapshot, fetch.PublicationTime))
+		stateMessages = append(stateMessages, buildStateMessage(uid, fetch.PublicationTime, buildActiveParams(tags, snapshot, fetch.PublicationTime)))
 	}
 
-	closeMissingInstances(client, config, fetch.PublicationTime, currentUIDs)
+	if len(registrationMessages) > 0 {
+		publishSDInstanceRegistrations(client, registrationMessages)
+	}
+	closeMissingInstances(client, config, fetch.PublicationTime, currentUIDs, &stateMessages)
+	if len(stateMessages) > 0 {
+		publishStates(client, stateMessages)
+	}
 }
 
-func closeMissingInstances(client rabbitmq.Client, config appConfig, eventTime time.Time, currentUIDs map[string]struct{}) {
+func closeMissingInstances(client rabbitmq.Client, config appConfig, eventTime time.Time, currentUIDs map[string]struct{}, stateMessages *[]sharedModel.KPIFulfillmentCheckRequestISCMessage) {
 	type closingPayload struct {
 		UID  string
 		Tags map[string]string
@@ -124,7 +135,7 @@ func closeMissingInstances(client rabbitmq.Client, config appConfig, eventTime t
 	instanceStatesMutex.Unlock()
 
 	for _, item := range toClose {
-		publishState(client, item.UID, item.Time, buildInactiveParams(item.Tags))
+		*stateMessages = append(*stateMessages, buildStateMessage(item.UID, item.Time, buildInactiveParams(item.Tags)))
 	}
 }
 

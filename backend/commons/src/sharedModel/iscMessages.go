@@ -10,8 +10,10 @@ type RawDataPointISCMessage struct {
 	Payload       []byte    `json:"payload"`
 }
 
+type KPIFulfillmentCheckRequestTupleISCMessage []KPIFulfillmentCheckRequestISCMessage
+
 type KPIFulfillmentCheckResultTupleISCMessage struct {
-	Tuple     []KPIFulfillmentCheckResultISCMessage `json:"sdTypeUID"`
+	Tuple     []KPIFulfillmentCheckResultISCMessage `json:"tuple"`
 	Reprocess bool                                  `json:"reprocess"`
 }
 
@@ -29,6 +31,8 @@ type KPIFulfillmentCheckRequestISCMessage struct {
 	SDTypeUID     string    `json:"sdTypeUID"`
 	Parameters    any       `json:"parameters"`
 }
+
+type SDInstanceRegistrationRequestTupleISCMessage []SDInstanceRegistrationRequestISCMessage
 
 type SDInstanceRegistrationRequestISCMessage struct {
 	EventTime     time.Time `json:"eventTime"`
@@ -52,6 +56,8 @@ type KPIConfigurationUpdateISCMessage struct {
 type MessageProcessingUnitConnectionNotification struct{}
 
 type SDTypeConfigurationUpdateISCMessage []SDTypeRegistrationRequestISCMessage
+type SDTypeRegistrationRequestTupleISCMessage []SDTypeRegistrationRequestISCMessage
+
 type SDTypeRegistrationRequestISCMessage struct {
 	SDTypeUID  string        `json:"sdTypeUID"`
 	Label      string        `json:"label"`

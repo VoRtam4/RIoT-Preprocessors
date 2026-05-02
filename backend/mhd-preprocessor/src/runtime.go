@@ -17,21 +17,7 @@ var (
 	instanceStates        = make(map[string]*runtimeInstanceState)
 	instanceStatesMutex   sync.Mutex
 	preprocessorStartedAt = time.Now().UTC()
-	sourceMode            = "wss"
-	sourceModeMutex       sync.Mutex
 )
-
-func setSourceMode(mode string) {
-	sourceModeMutex.Lock()
-	sourceMode = mode
-	sourceModeMutex.Unlock()
-}
-
-func getSourceMode() string {
-	sourceModeMutex.Lock()
-	defer sourceModeMutex.Unlock()
-	return sourceMode
-}
 
 func checkForSetOfSDInstancesUpdates(client rabbitmq.Client) {
 	err := rabbitmq.ConsumeJSONMessages[sharedModel.SDInstanceConfigurationUpdateISCMessage](
@@ -131,21 +117,16 @@ func closeExpiredInstances(client rabbitmq.Client, config appConfig, now time.Ti
 			continue
 		}
 		shouldCloseByTripEnd := !state.CloseAt.IsZero() && !state.CloseAt.After(now)
-		shouldCloseByStaleInput := getSourceMode() == "poll" && !state.LastSourceTime.IsZero() && now.Sub(state.LastSourceTime) >= config.PollingStaleTimeout
-		if !shouldCloseByTripEnd && !shouldCloseByStaleInput {
+		if !shouldCloseByTripEnd {
 			continue
 		}
 
 		state.CurrentlyActive = false
 		state.LastActivePublishAt = time.Time{}
-		closeTime := state.CloseAt
-		if shouldCloseByStaleInput {
-			closeTime = now
-		}
 		toClose = append(toClose, closingPayload{
 			UID:  state.UID,
 			Tags: cloneTags(state.Tags),
-			Time: jitterTime(closeTime, config.SyntheticJitter),
+			Time: jitterTime(state.CloseAt, config.SyntheticJitter),
 		})
 	}
 	instanceStatesMutex.Unlock()

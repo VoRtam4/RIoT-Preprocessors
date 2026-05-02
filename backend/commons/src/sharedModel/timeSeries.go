@@ -173,6 +173,7 @@ type QueryPlan struct {
 	Limit    int
 	Batch    int
 	SortDesc bool
+	UseSort  bool
 
 	AggregateSeconds *int
 
@@ -183,6 +184,7 @@ type QueryPlan struct {
 
 	UseAggregation    bool
 	NeedInitial       bool
+	NeedGrouping      bool
 	HasInstanceFilter bool
 	HasTagFilter      bool
 	HasKPI            bool

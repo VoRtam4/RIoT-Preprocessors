@@ -14,7 +14,6 @@ func main() {
 
 	config := loadConfig()
 	log.Printf("[MHD] Configured WebSocket endpoints: %v", config.WSURLs)
-	log.Printf("[MHD] Polling fallback endpoint: %s", config.PollingURL)
 	client := rabbitmq.NewClient()
 	defer client.Dispose()
 
@@ -30,7 +29,7 @@ func main() {
 
 	go refreshGTFSPolling(client, store, config)
 	go closingLoop(client, config)
-	runPrimarySourceLoop(client, store, config)
+	runWebSocketLoop(client, store, config)
 }
 
 func refreshGTFSPolling(client rabbitmq.Client, store *GTFSStore, config appConfig) {

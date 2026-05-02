@@ -5,6 +5,5 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./data/ndic_messages:/app/ndic_messages
-      - ./data/statistics.json:/app/statistics.json
+      - ./data:/app/data
     restart: unless-stopped

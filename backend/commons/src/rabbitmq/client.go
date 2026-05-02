@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -26,6 +27,10 @@ var (
 	once                      sync.Once
 )
 
+const (
+	connectRetryDelay = 2 * time.Second
+)
+
 func getConnectionManagerInstance() *connectionManager {
 	once.Do(func() {
 		urlOptional := sharedUtils.GetEnvironmentVariableValue("RABBITMQ_URL")
@@ -36,15 +41,18 @@ func getConnectionManagerInstance() *connectionManager {
 	return connectionManagerInstance
 }
 
-func (c *connectionManager) connect() {
+func (c *connectionManager) connect() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.conn == nil || c.conn.IsClosed() {
 		conn, err := amqp.Dial(c.url)
-		sharedUtils.TerminateOnError(err, "[RabbitMQ client] Failed to connect to RabbitMQ")
+		if err != nil {
+			return err
+		}
 		c.conn = conn
 	}
 	c.clientCount++
+	return nil
 }
 
 func (c *connectionManager) release() {
@@ -70,17 +78,59 @@ type Client interface {
 
 type ClientImpl struct {
 	channel *amqp.Channel
+	mu      sync.Mutex
 }
 
 func NewClient() Client {
+	client := &ClientImpl{}
+	client.ensureChannel()
+	return client
+}
+
+func (c *ClientImpl) openChannel() error {
 	cm := getConnectionManagerInstance()
-	cm.connect()
+	if err := cm.connect(); err != nil {
+		return err
+	}
 	channel, err := cm.conn.Channel()
-	sharedUtils.TerminateOnError(err, "[RabbitMQ client] Failed to open a channel")
-	return &ClientImpl{channel: channel}
+	if err != nil {
+		return err
+	}
+	c.channel = channel
+	return nil
+}
+
+func (c *ClientImpl) ensureChannel() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for c.channel == nil || c.channel.IsClosed() {
+		if err := c.openChannel(); err != nil {
+			log.Printf("[RabbitMQ client] Failed to connect to RabbitMQ: %v", err)
+			time.Sleep(connectRetryDelay)
+			continue
+		}
+	}
+}
+
+func (c *ClientImpl) retryAfterReconnect(err error) bool {
+	if err == nil {
+		return false
+	}
+	if c.channel != nil && c.channel.IsClosed() {
+		return true
+	}
+	cm := getConnectionManagerInstance()
+	if cm.conn == nil || cm.conn.IsClosed() {
+		return true
+	}
+	errMsg := err.Error()
+	return strings.Contains(errMsg, "channel/connection is not open") ||
+		strings.Contains(errMsg, "connection is not open") ||
+		strings.Contains(errMsg, "channel is not open")
 }
 
 func (c *ClientImpl) GetChannel() *amqp.Channel {
+	c.ensureChannel()
 	return c.channel
 }
 
@@ -89,10 +139,19 @@ func (c *ClientImpl) PublishJSONMessage(exchangeNameOptional sharedUtils.Optiona
 	defer cancelFunction()
 	exchangeName := exchangeNameOptional.GetPayloadOrDefault("")
 	routingKey := routingKeyOptional.GetPayloadOrDefault("")
-	return c.channel.PublishWithContext(ctx, exchangeName, routingKey, false, false, amqp.Publishing{
+	c.ensureChannel()
+	err := c.channel.PublishWithContext(ctx, exchangeName, routingKey, false, false, amqp.Publishing{
 		ContentType: "application/json",
 		Body:        messagePayload,
 	})
+	if c.retryAfterReconnect(err) {
+		c.ensureChannel()
+		err = c.channel.PublishWithContext(ctx, exchangeName, routingKey, false, false, amqp.Publishing{
+			ContentType: "application/json",
+			Body:        messagePayload,
+		})
+	}
+	return err
 }
 
 func (c *ClientImpl) PublishJSONMessageRPC(exchangeNameOptional sharedUtils.Optional[string], routingKeyOptional sharedUtils.Optional[string], messagePayload []byte, correlationId string, replyToOptional sharedUtils.Optional[string]) error {
@@ -103,14 +162,25 @@ func (c *ClientImpl) PublishJSONMessageRPC(exchangeNameOptional sharedUtils.Opti
 	exchangeName := exchangeNameOptional.GetPayloadOrDefault("")
 	routingKey := routingKeyOptional.GetPayloadOrDefault("")
 	replyTo := replyToOptional.GetPayloadOrDefault("")
-
-	return c.channel.PublishWithContext(ctx, exchangeName, routingKey, false, false, amqp.Publishing{
+	c.ensureChannel()
+	err := c.channel.PublishWithContext(ctx, exchangeName, routingKey, false, false, amqp.Publishing{
 		ContentType:   "application/json",
 		Body:          messagePayload,
 		CorrelationId: correlationId,
 		ReplyTo:       replyTo,
 		Expiration:    expiration,
 	})
+	if c.retryAfterReconnect(err) {
+		c.ensureChannel()
+		err = c.channel.PublishWithContext(ctx, exchangeName, routingKey, false, false, amqp.Publishing{
+			ContentType:   "application/json",
+			Body:          messagePayload,
+			CorrelationId: correlationId,
+			ReplyTo:       replyTo,
+			Expiration:    expiration,
+		})
+	}
+	return err
 }
 
 func (c *ClientImpl) PublishJSONMessageWithReplyTo(exchangeNameOptional sharedUtils.Optional[string], routingKeyOptional sharedUtils.Optional[string], messagePayload []byte, correlationId string, replyToOptional sharedUtils.Optional[string]) error {
@@ -119,12 +189,23 @@ func (c *ClientImpl) PublishJSONMessageWithReplyTo(exchangeNameOptional sharedUt
 	exchangeName := exchangeNameOptional.GetPayloadOrDefault("")
 	routingKey := routingKeyOptional.GetPayloadOrDefault("")
 	replyTo := replyToOptional.GetPayloadOrDefault("")
-	return c.channel.PublishWithContext(ctx, exchangeName, routingKey, false, false, amqp.Publishing{
+	c.ensureChannel()
+	err := c.channel.PublishWithContext(ctx, exchangeName, routingKey, false, false, amqp.Publishing{
 		ContentType:   "application/json",
 		Body:          messagePayload,
 		CorrelationId: correlationId,
 		ReplyTo:       replyTo,
 	})
+	if c.retryAfterReconnect(err) {
+		c.ensureChannel()
+		err = c.channel.PublishWithContext(ctx, exchangeName, routingKey, false, false, amqp.Publishing{
+			ContentType:   "application/json",
+			Body:          messagePayload,
+			CorrelationId: correlationId,
+			ReplyTo:       replyTo,
+		})
+	}
+	return err
 }
 
 func ConsumeRPCStream[T any](msgs <-chan amqp091.Delivery, correlationID string, timeout time.Duration, handle func(resp T, msg amqp091.Delivery) (done bool, err error)) error {
@@ -168,11 +249,13 @@ func ConsumeRPCStream[T any](msgs <-chan amqp091.Delivery, correlationID string,
 }
 
 func (c *ClientImpl) DeclareQueue(queueName string) error {
+	c.ensureChannel()
 	_, err := c.channel.QueueDeclare(queueName, false, false, false, false, nil)
 	return err
 }
 
 func (c *ClientImpl) SetupMessageConsumption(queueName string, messageConsumerFunction func(message amqp.Delivery) error) error {
+	c.ensureChannel()
 	if err := c.channel.Qos(1, 0, false); err != nil {
 		return err
 	}
@@ -193,6 +276,7 @@ func (c *ClientImpl) SetupMessageConsumption(queueName string, messageConsumerFu
 
 func (c *ClientImpl) SetupMessageConsumptionWithCorrelationId(queueName string, correlationId string, messageConsumerFunction func(message amqp.Delivery) error) error {
 	consumerName := fmt.Sprintf("%s-consumer", correlationId)
+	c.ensureChannel()
 	if err := c.channel.Qos(1, 0, false); err != nil {
 		return err
 	}
@@ -266,7 +350,9 @@ func (c *ClientImpl) SetupMessageConsumptionWithCorrelationId(queueName string, 
 }
 
 func (c *ClientImpl) Dispose() {
-	sharedUtils.LogPossibleErrorThenProceed(c.channel.Close(), "[RabbitMQ client] Failed to close a channel")
+	if c.channel != nil && !c.channel.IsClosed() {
+		sharedUtils.LogPossibleErrorThenProceed(c.channel.Close(), "[RabbitMQ client] Failed to close a channel")
+	}
 	getConnectionManagerInstance().release()
 }
 
@@ -316,4 +402,27 @@ func ConsumeJSONMessagesFromFanoutExchange[T any](client Client, fanoutExchangeN
 		return err
 	}
 	return ConsumeJSONMessages[T](client, queueName, messagePayloadConsumerFunction)
+}
+
+func PublishJSONBatches[T any](client Client, exchangeNameOptional sharedUtils.Optional[string], routingKeyOptional sharedUtils.Optional[string], tuple []T, batchSize int) error {
+	if len(tuple) == 0 {
+		return nil
+	}
+	if batchSize <= 0 {
+		batchSize = len(tuple)
+	}
+	for start := 0; start < len(tuple); start += batchSize {
+		end := start + batchSize
+		if end > len(tuple) {
+			end = len(tuple)
+		}
+		jsonSerializationResult := sharedUtils.SerializeToJSON(tuple[start:end])
+		if jsonSerializationResult.IsFailure() {
+			return jsonSerializationResult.GetError()
+		}
+		if err := client.PublishJSONMessage(exchangeNameOptional, routingKeyOptional, jsonSerializationResult.GetPayload()); err != nil {
+			return err
+		}
+	}
+	return nil
 }

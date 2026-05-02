@@ -10,6 +10,8 @@ COPY ./ndic-preprocessor/src /app/ndic-preprocessor/src
 # Copy the go.mod file, go.sum file, and src directory from commons
 COPY ./commons/go.mod ./commons/go.sum /app/commons/
 COPY ./commons/src /app/commons/src
+# Copy bundled TMC reference data for local enrichment inside NDIC preprocessor
+COPY ./ndic-preprocessor/static_data/tmc /app/ndic-preprocessor/static_data/tmc
 # Change working directory to where the Go app's main module is located
 WORKDIR /app/ndic-preprocessor
 # Download all dependencies. Dependencies will be cached if the go.mod and go.sum files are not changed

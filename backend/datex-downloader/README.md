@@ -1,39 +1,37 @@
-# Datex Downloader – Modul pro příjem a distribuci NDIC zpráv
+# Datex Downloader – Push přijímač NDIC zpráv
 
-Tento modul slouží jako samostatná komponenta systému pro monitorování otevřených dat v reálném čase. 
-Jeho hlavním účelem je příjem zpráv NDIC ve formátu Datex II, jejich zpracování, ukládání a distribuce v rámci systému.
+Tento modul slouží jako jednoduchá vstupní brána pro push zprávy z NDIC ve formátu DATEX II.  
+Jeho úkolem je zprávu přijmout, ověřit, uložit a zpřístupnit poslední snapshot modulu `ndic-preprocessor`.
 
 ---
 
 ## Účel modulu
-Datex Downloader poskytuje rozhraní pro příjem zpráv od NDIC, ověřuje jejich správnost, 
-ukládá je do souborového úložiště a zpřístupňuje je dalším částem systému prostřednictvím HTTP API a WebSocket připojení. 
-Zároveň vede statistiky o přijatých zprávách a přístupech k API.
+Datex Downloader poskytuje rozhraní pro příjem zpráv od NDIC, ověřuje jejich správnost,
+ukládá je do souborového úložiště a vystavuje poslední přijatý snapshot přes jednoduché HTTP API.
+Neprovádí vlastní parsování dopravních dat ani pull akvizici z NDIC.
 
 ---
 
 ## Použité technologie
 - **Python 3.11+** – implementace serveru.
-- **FastAPI** – webový framework pro HTTP a WebSocket endpointy.
+- **FastAPI** – webový framework pro HTTP endpointy.
 - **uvicorn** – ASGI server pro běh aplikace.
 - **xml.etree.ElementTree** – zpracování a validace XML dat.
-- **gzip** a **zipfile** – komprese a dekomprese dat.
-- **threading.Lock** – zajištění bezpečného přístupu k uloženým datům z více vláken.
+- **gzip** – dekomprese příchozích zpráv.
 
 ---
 
 ## Funkcionalita
 - Příjem zpráv NDIC přes endpoint `/datex-in` s podporou **HTTP Basic autentizace**.
 - Ověření a uložení zpráv ve formátu XML do adresáře `ndic_messages`.
-- Poskytování poslední zprávy nebo všech zpráv ke stažení.
-- Zpřístupnění zpráv přes WebSocket v reálném čase připojeným klientům.
-- Sledování statistik přijatých zpráv a přístupů k API, generování HTML přehledu statistik.
+- Poskytování poslední zprávy jako JSON wrapper nebo přímo jako XML.
+- Udržování omezeného počtu archivovaných snapshotů na disku.
 
 ---
 
 ## Struktura projektu
 - **main.py** – hlavní aplikace FastAPI se všemi endpointy.
-- **storage.py** – třída `DatexStorage` pro ukládání poslední zprávy a správu WebSocket klientů.
+- **storage.py** – jednoduché in-memory uložení poslední zprávy.
 - **requirements.txt** – přehled potřebných Python knihoven.
 
 ---
@@ -43,10 +41,10 @@ Zároveň vede statistiky o přijatých zprávách a přístupech k API.
 | Endpoint                 | Metoda  | Popis |
 |--------------------------|--------|------|
 | `/datex-in`              | POST   | Přijímá NDIC zprávy, ověřuje autentizaci, zpracovává a ukládá zprávy. |
-| `/download/all.zip`      | GET    | Vrací všechny uložené zprávy jako ZIP archiv. |
 | `/api/latest`            | GET    | Vrací poslední zprávu ve formátu JSON. |
 | `/api/latest.xml`        | GET    | Vrací poslední zprávu ve formátu XML. |
-| `/statistic`             | GET    | Vrací HTML stránku se statistikami přijatých zpráv. |
+| `/download/latest.xml`   | GET    | Vrací poslední uloženou zprávu jako XML soubor. |
+| `/healthz`               | GET    | Jednoduchý health endpoint. |
 
 ---
 
@@ -77,12 +75,6 @@ docker-compose down
 
 ---
 
-## Nasazené prostředí pro testovací účely
-
-V rámci testování pro ověření funkcionality v rámci BP byl systém nasazen na VPS, kde je možné systém testovat na adrese:[http://http://http://80.211.200.65:8000](http://http://http://80.211.200.65:8000/statistic).  
-
----
-
 ## Kontext použití
-Tento modul funguje jako samostatná služba systému pro monitorování otevřených dat v reálném čase. 
-Předává zprávy NDIC v jednotném formátu do dalších komponent systému a zároveň umožňuje klientům sledovat zprávy prostřednictvím API a WebSocket připojení.
+Tento modul funguje jako záměrně jednoduchá mezivrstva mezi NDIC a `ndic-preprocessor`.  
+Přijímá push zprávy, archivuje je a vystavuje poslední snapshot tak, aby samotný preprocesor mohl zůstat stavový a soustředit se na parsing, enrichment a integraci do systému.

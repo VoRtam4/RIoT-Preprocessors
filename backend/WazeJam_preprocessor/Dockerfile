@@ -16,6 +16,6 @@ WORKDIR /app/WazeJam_preprocessor
 RUN go mod tidy
 RUN go mod download
 # Build the Go app
-RUN CGO_ENABLED=0 GOOS=linux go build -o RIoT-wazejam-preprocessor src/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o RIoT-wazejam-preprocessor ./src
 # Run the executable
 CMD ["/app/WazeJam_preprocessor/RIoT-wazejam-preprocessor"]

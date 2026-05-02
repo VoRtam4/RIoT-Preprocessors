@@ -64,7 +64,6 @@ func consumeWebSocket(client rabbitmq.Client, store *GTFSStore, config appConfig
 	})
 
 	log.Printf("[MHD] WebSocket connected: %s", wsURL)
-	setSourceMode("wss")
 
 	done := make(chan struct{})
 	defer close(done)
@@ -217,6 +216,15 @@ func logSampleLivePayload(message []byte) {
 
 	livePayloadsLogged++
 	log.Printf("[MHD] Sample live payload %d: %s", livePayloadsLogged, string(message))
+}
+
+func runWebSocketLoop(client rabbitmq.Client, store *GTFSStore, config appConfig) {
+	for {
+		if err := consumeAnyWebSocket(client, store, config, config.NoDataReconnect); err != nil {
+			log.Printf("[MHD] WebSocket loop ended: %v", err)
+		}
+		time.Sleep(config.ReconnectDelay)
+	}
 }
 
 func buildLiveRecord(envelope *rawEnvelope, message []byte) *liveRecord {

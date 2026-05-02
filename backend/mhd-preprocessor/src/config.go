@@ -11,7 +11,6 @@ import (
 
 const (
 	defaultWSURL                 = "wss://gis.brno.cz/geoevent/ws/services/stream_kordis_26/StreamServer/subscribe?outSR=4326"
-	defaultPollingURL            = "https://gis.brno.cz/ags1/rest/services/Hosted/Kordis_26_polohy/FeatureServer/0/query"
 	defaultGTFSURL               = "https://kordis-jmk.cz/gtfs/gtfs.zip"
 	defaultGTFSLocation          = "Europe/Prague"
 	mhdSDTypeUID                 = "MHD_TRIP"
@@ -24,18 +23,11 @@ const (
 	defaultClosingLoopInterval   = 2 * time.Second
 	defaultReconnectDelay        = 5 * time.Second
 	defaultActivePublishInterval = 1 * time.Minute
-	defaultWSNoDataFallback      = 5 * time.Minute
-	defaultPollingInterval       = 10 * time.Second
-	defaultPollingHTTPTimeout    = 30 * time.Second
-	defaultPollingResultLimit    = 30000
-	defaultWSPollingRetryDelay   = 30 * time.Second
-	defaultWSPollingProbeTimeout = 10 * time.Second
-	defaultPollingStaleTimeout   = 30 * time.Second
+	defaultNoDataReconnect       = 45 * time.Second
 )
 
 type appConfig struct {
 	WSURLs                []string
-	PollingURL            string
 	GTFSURL               string
 	GTFSLocation          *time.Location
 	GTFSRefreshInterval   time.Duration
@@ -46,13 +38,7 @@ type appConfig struct {
 	ClosingLoopInterval   time.Duration
 	ReconnectDelay        time.Duration
 	ActivePublishInterval time.Duration
-	WSNoDataFallback      time.Duration
-	PollingInterval       time.Duration
-	PollingHTTPTimeout    time.Duration
-	PollingResultLimit    int
-	WSPollingRetryDelay   time.Duration
-	WSPollingProbeTimeout time.Duration
-	PollingStaleTimeout   time.Duration
+	NoDataReconnect       time.Duration
 }
 
 func loadConfig() appConfig {
@@ -63,7 +49,6 @@ func loadConfig() appConfig {
 
 	return appConfig{
 		WSURLs:                loadStreamWSURLs(),
-		PollingURL:            getEnv("MHD_POLLING_URL", defaultPollingURL),
 		GTFSURL:               getEnv("MHD_GTFS_URL", defaultGTFSURL),
 		GTFSLocation:          location,
 		GTFSRefreshInterval:   defaultGTFSRefreshInterval,
@@ -74,13 +59,7 @@ func loadConfig() appConfig {
 		ClosingLoopInterval:   defaultClosingLoopInterval,
 		ReconnectDelay:        defaultReconnectDelay,
 		ActivePublishInterval: defaultActivePublishInterval,
-		WSNoDataFallback:      defaultWSNoDataFallback,
-		PollingInterval:       defaultPollingInterval,
-		PollingHTTPTimeout:    defaultPollingHTTPTimeout,
-		PollingResultLimit:    defaultPollingResultLimit,
-		WSPollingRetryDelay:   defaultWSPollingRetryDelay,
-		WSPollingProbeTimeout: defaultWSPollingProbeTimeout,
-		PollingStaleTimeout:   defaultPollingStaleTimeout,
+		NoDataReconnect:       defaultNoDataReconnect,
 	}
 }
 

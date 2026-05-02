@@ -3,26 +3,32 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-PROJECT_ROOT="$SCRIPT_DIR/../RIoT"
+PROJECT_ROOT="$SCRIPT_DIR/../RIoT" # <-- adjust if your project is in a different location
 PREPROCESSORS_ROOT="$SCRIPT_DIR"
 MAIN_PROJECT="$PROJECT_ROOT"
 
-COMMONS_SRC="$PROJECT_ROOT/backend/commons"
-COMMONS_DST="$PREPROCESSORS_ROOT/backend/commons"
-
 DOCKER_DIR="$PROJECT_ROOT/docker"
 
-sync_commons() {
-  if [ ! -d "$COMMONS_SRC" ]; then
-    echo "SOURCE neexistuje: $COMMONS_SRC"
-    exit 1
-  fi
+sync_backend() {
+  mkdir -p "$PREPROCESSORS_ROOT/backend"
 
-  mkdir -p "$COMMONS_DST"
-
-  rsync -av \
-    "$COMMONS_SRC/" \
-    "$COMMONS_DST/"
+  for dir in \
+    WazeJam_preprocessor \
+    datex-downloader \
+    mhd-preprocessor \
+    ndic-preprocessor \
+    commons
+  do
+    echo "Sync $dir..."
+    rsync -av --delete \
+      --exclude 'targetApp/' \
+      --exclude 'targetAppFE/' \
+      --exclude 'targetAppBE/' \
+      --exclude 'node_modules/' \
+      --exclude '*.log' \
+      "$PROJECT_ROOT/backend/$dir/" \
+      "$PREPROCESSORS_ROOT/backend/$dir/"
+  done
 }
 
 clean_main_docker() {
@@ -34,10 +40,10 @@ clean_main_docker() {
 
 stop_all() {
   cd "$PREPROCESSORS_ROOT"
-  docker-compose down -v || true
+  docker-compose down || true
 
   cd "$MAIN_PROJECT"
-  docker-compose down -v || true
+  docker-compose down || true
 }
 
 start_all() {
@@ -45,13 +51,13 @@ start_all() {
   docker-compose up --build -d
 
   cd "$PREPROCESSORS_ROOT"
-  docker-compose up --build -d
+  docker-compose build --no-cache
+  docker-compose up -d
 }
 
 restart_all() {
   stop_all
-  sync_commons
-  clean_main_docker
+  sync_backend
   start_all
 }
 
@@ -63,6 +69,6 @@ case "${1:-}" in
     restart_all
     ;;
   *)
-    echo "Usage: ./run.sh [stop|restart]"
+    echo "Usage: ./make.sh [stop|restart]"
     ;;
 esac

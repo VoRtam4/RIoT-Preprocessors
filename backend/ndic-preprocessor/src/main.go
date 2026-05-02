@@ -14,21 +14,14 @@ func main() {
 	config := loadConfig()
 	client := rabbitmq.NewClient()
 	defer client.Dispose()
+	enricher := newTMCEnricher(config)
 
 	registerSDType(client)
 	time.Sleep(5 * time.Second)
 	go checkForSetOfSDInstancesUpdates(client)
 
-	if config.HTTPEnabled {
-		go startHTTPServer(client, config)
-	}
-
-	if !config.PollEnabled {
-		select {}
-	}
-
 	for {
-		publicationTime := fetchAndProcessNDICData(client, config)
+		publicationTime := fetchAndProcessNDICData(client, config, enricher)
 		time.Sleep(nextFetchDelay(config.FetchDelay, publicationTime))
 	}
 }

@@ -41,6 +41,7 @@
         RABBITMQ_URL: ${RABBITMQ_URL}
         MHD_WS_URL: ${MHD_WS_URL}
         MHD_GTFS_URL: ${MHD_GTFS_URL}
+        MHD_WS_AUTHORIZATION: ${MHD_WS_AUTHORIZATION}
       restart: unless-stopped
 
   networks:

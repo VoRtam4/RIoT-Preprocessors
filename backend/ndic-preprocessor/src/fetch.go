@@ -31,17 +31,17 @@ func fetchAndProcessNDICData(client rabbitmq.Client, config appConfig, enricher 
 func fetchNDIC(config appConfig) (*parsedFetch, error) {
 	resp, err := http.Get(config.NDICURL)
 	if err != nil {
-		return nil, fmt.Errorf("download NDIC: %w", err)
+		return nil, fmt.Errorf("download NDIC from %s: %w", config.NDICURL, err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("download NDIC: status %s", resp.Status)
+		return nil, fmt.Errorf("download NDIC from %s: status %s", config.NDICURL, resp.Status)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("read NDIC body: %w", err)
+		return nil, fmt.Errorf("read NDIC body from %s: %w", config.NDICURL, err)
 	}
 
 	xmlBytes, err := unwrapXML(body, resp.Header.Get("Content-Type"))

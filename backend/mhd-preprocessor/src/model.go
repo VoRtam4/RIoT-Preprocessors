@@ -10,26 +10,38 @@ type rawEnvelope struct {
 }
 
 type liveRecord struct {
-	RawMessage       string
-	Attributes       map[string]interface{}
-	SourceTimestamp  time.Time
-	GeometryLat      float64
-	GeometryLng      float64
-	ObjectID         string
-	GlobalID         string
-	VehicleRuntimeID string
-	VehicleType      string
-	LineType         string
-	LineID           string
-	LineName         string
-	LiveRouteID      string
-	Course           string
-	LowFloor         string
-	Delay            float64
-	Bearing          float64
-	LastStopID       string
-	FinalStopID      string
-	IsInactive       bool
+	RawMessage             string
+	Attributes             map[string]interface{}
+	SourceTimestamp        time.Time
+	GeometryLat            float64
+	GeometryLng            float64
+	ObjectID               string
+	GlobalID               string
+	VehicleRuntimeID       string
+	VehicleType            string
+	LineType               string
+	LineID                 string
+	LineName               string
+	LiveRouteID            string
+	Course                 string
+	LowFloor               string
+	Delay                  float64
+	Bearing                float64
+	LastStopID             string
+	LastPostID             string
+	FinalStopID            string
+	FinalStopName          string
+	ServiceID              string
+	ObservedDepartureTime  time.Time
+	ObservedDepartureValid bool
+	OCFinalStopID          string
+	OCFinalStopName        string
+	OCLineID               string
+	OCLineName             string
+	OCRouteID              string
+	State                  string
+	TMFlagText             string
+	IsInactive             bool
 }
 
 type stopMetadata struct {
@@ -76,16 +88,15 @@ type tripMatch struct {
 }
 
 type runtimeInstanceState struct {
-	UID                 string
-	Label               string
-	Tags                map[string]string
-	SeenSinceStart      bool
-	CurrentlyActive     bool
-	CloseAt             time.Time
-	LastSourceTime      time.Time
-	LastOccurrenceAt    time.Time
-	LastVehicleID       string
-	LastActivePublishAt time.Time
+	UID              string
+	Label            string
+	Tags             map[string]string
+	SeenSinceStart   bool
+	CurrentlyActive  bool
+	CloseAt          time.Time
+	LastSourceTime   time.Time
+	LastOccurrenceAt time.Time
+	LastVehicleID    string
 }
 
 type tripCSVRecord struct {

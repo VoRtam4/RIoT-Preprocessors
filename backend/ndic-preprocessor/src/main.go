@@ -12,6 +12,7 @@ func main() {
 	log.SetOutput(os.Stderr)
 
 	config := loadConfig()
+	log.Printf("[NDIC] Configured source URL: %s", config.NDICURL)
 	client := rabbitmq.NewClient()
 	defer client.Dispose()
 	enricher := newTMCEnricher(config)

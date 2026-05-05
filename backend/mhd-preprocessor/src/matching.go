@@ -46,6 +46,23 @@ func matchingBonus(candidate *tripDefinition, occurrence tripOccurrence, record 
 	if sameServiceDate(occurrence.ServiceDate, record.SourceTimestamp, location) {
 		bonus += 30 * time.Minute
 	}
+	if record.ServiceID != "" && record.ServiceID == occurrence.ServiceID {
+		bonus += 45 * time.Minute
+	}
+	if record.ObservedDepartureValid {
+		drift := occurrence.ScheduledStart.Sub(record.ObservedDepartureTime)
+		if drift < 0 {
+			drift = -drift
+		}
+		switch {
+		case drift <= 2*time.Minute:
+			bonus += 60 * time.Minute
+		case drift <= 5*time.Minute:
+			bonus += 40 * time.Minute
+		case drift <= 10*time.Minute:
+			bonus += 20 * time.Minute
+		}
+	}
 	if record.FinalStopID != "" && record.FinalStopID == candidate.ToStopID {
 		bonus += 20 * time.Minute
 	}

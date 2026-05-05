@@ -13,6 +13,7 @@ const (
 	TimeSeriesRawDataQueueName                            = "time-series-raw-data"
 	TimeSeriesKPIResultQueueName                          = "time-series-kpi-results"
 	TimeSeriesReadRequestQueueName                        = "time-series-read-request"
+	TimeSeriesReadCancelRequestQueueName                  = "time-series-read-cancel-request"
 	TimeSeriesReadResponseQueueName                       = "time-series-read-response"
 	TimeSeriesDistinctTagValuesRequestQueueName           = "time-series-distinct-tag-values-request"
 	TimeSeriesDistinctTagValuesResponseQueueName          = "time-series-distinct-tag-values-response"

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"net/url"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -25,12 +27,31 @@ type appConfig struct {
 
 func loadConfig() appConfig {
 	return appConfig{
-		NDICURL:            getEnv("NDIC_URL", defaultNDICURL),
+		NDICURL:            normalizeNDICURL(getEnv("NDIC_URL", defaultNDICURL)),
 		TMCDir:             defaultTMCDir,
 		FetchDelay:         defaultFetchDelay,
 		StartupGracePeriod: defaultStartupGracePeriod,
 		SyntheticJitter:    defaultSyntheticJitter,
 	}
+}
+
+func normalizeNDICURL(value string) string {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return defaultNDICURL
+	}
+
+	parsed, err := url.Parse(trimmed)
+	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
+		return trimmed
+	}
+
+	switch strings.TrimRight(parsed.Path, "/") {
+	case "", "/":
+		parsed.Path = "/api/latest"
+	}
+
+	return parsed.String()
 }
 
 func getEnv(key string, fallback string) string {

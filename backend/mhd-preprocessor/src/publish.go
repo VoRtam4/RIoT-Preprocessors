@@ -47,11 +47,26 @@ func buildActiveParams(tags map[string]string, record *liveRecord, segment *segm
 	params["ltype"] = record.LineType
 	params["lf"] = record.LowFloor
 	params["laststopid"] = record.LastStopID
+	params["lastpostid"] = record.LastPostID
 	params["lastupdate"] = float64(record.SourceTimestamp.UnixMilli())
 	params["lat"] = record.GeometryLat
 	params["lng"] = record.GeometryLng
 	params["bearing"] = record.Bearing
 	params["delay"] = record.Delay
+	params["finalstopname"] = record.FinalStopName
+	params["serviceid"] = record.ServiceID
+	if record.ObservedDepartureValid {
+		params["departuredt"] = record.ObservedDepartureTime.Format(time.RFC3339Nano)
+	} else {
+		params["departuredt"] = ""
+	}
+	params["ocfinalstopid"] = record.OCFinalStopID
+	params["ocfinalstopname"] = record.OCFinalStopName
+	params["oclineid"] = record.OCLineID
+	params["oclinename"] = record.OCLineName
+	params["ocrouteid"] = record.OCRouteID
+	params["state"] = record.State
+	params["tmflagtext"] = record.TMFlagText
 	if segment != nil {
 		params["segment_from_stop_id"] = segment.From.ID
 		params["segment_to_stop_id"] = segment.To.ID

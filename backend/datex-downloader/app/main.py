@@ -3,6 +3,7 @@ Minimalni push prijimac DATEX II pro NDIC preprocessor.
 """
 from datetime import datetime, timezone
 import gzip
+import logging
 import os
 from pathlib import Path
 import secrets
@@ -16,6 +17,7 @@ from app.storage import storage
 
 app = FastAPI()
 security = HTTPBasic()
+logger = logging.getLogger("datex-downloader")
 
 USERNAME = os.getenv("DATEX_USERNAME", "")
 PASSWORD = os.getenv("DATEX_PASSWORD", "")
@@ -48,9 +50,11 @@ def load_latest_message() -> None:
             latest_file = path
 
     if latest_file is None:
+        logger.info("No persisted DATEX snapshot found on startup")
         return
 
     storage.save(latest_file.read_text(encoding="utf-8"))
+    logger.info("Loaded persisted DATEX snapshot on startup: %s", latest_file.name)
 
 
 @app.on_event("startup")
@@ -99,9 +103,23 @@ def decode_request_xml(raw_data: bytes, content_encoding: str) -> str:
 
 @app.post("/datex-in")
 async def datex_in(request: Request, username: str = Depends(verify_credentials)):
-    raw_xml = decode_request_xml(await request.body(), request.headers.get("Content-Encoding", ""))
+    body = await request.body()
+    content_encoding = request.headers.get("Content-Encoding", "")
+    raw_xml = decode_request_xml(body, content_encoding)
     storage.save(raw_xml)
-    persist_xml(raw_xml)
+    path = persist_xml(raw_xml)
+    try:
+        root_tag = ET.fromstring(raw_xml).tag
+    except ET.ParseError:
+        root_tag = "unknown"
+    logger.info(
+        "Accepted DATEX push | user=%s encoding=%s bytes=%d root=%s stored=%s",
+        username or "<anonymous>",
+        content_encoding or "<none>",
+        len(body),
+        root_tag,
+        path.name,
+    )
     return {"status": "ok"}
 
 
@@ -109,7 +127,9 @@ async def datex_in(request: Request, username: str = Depends(verify_credentials)
 async def get_latest():
     latest_raw = storage.get_latest()
     if latest_raw is None:
+        logger.warning("GET /api/latest -> no data available")
         raise HTTPException(status_code=404, detail="No data available")
+    logger.info("Served latest DATEX snapshot as JSON wrapper")
     return {"latest_raw": latest_raw}
 
 
@@ -117,7 +137,9 @@ async def get_latest():
 async def get_latest_xml():
     latest_raw = storage.get_latest()
     if latest_raw is None:
+        logger.warning("GET /api/latest.xml -> no data available")
         raise HTTPException(status_code=404, detail="No data available")
+    logger.info("Served latest DATEX snapshot as XML")
     return Response(content=latest_raw, media_type="application/xml")
 
 
@@ -125,7 +147,9 @@ async def get_latest_xml():
 async def download_latest():
     files = sorted(XML_STORAGE_DIR.glob("*.xml"), key=lambda path: path.stat().st_mtime)
     if not files:
+        logger.warning("GET /download/latest.xml -> no messages available")
         raise HTTPException(status_code=404, detail="No messages available")
+    logger.info("Served latest persisted DATEX snapshot: %s", files[-1].name)
     return FileResponse(files[-1], media_type="application/xml", filename="latest.xml")
 
 

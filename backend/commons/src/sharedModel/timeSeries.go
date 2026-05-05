@@ -95,6 +95,7 @@ type TimeSeriesDataPoint struct {
 }
 
 type TimeSeriesReadRequest struct {
+	JobID            uint32            `json:"jobId,omitempty"`
 	Type             TimeSeriesType    `json:"type"`
 	SDTypeUID        string            `json:"SDTypeID,omitempty"`
 	SDInstanceUIDs   []string          `json:"sdInstanceUIDs,omitempty"`
@@ -107,6 +108,10 @@ type TimeSeriesReadRequest struct {
 	Batch            *int              `json:"batch,omitempty"`
 	Filters          *FilterNode       `json:"filters,omitempty"`
 	Cursor           *TimeSeriesCursor `json:"cursor,omitempty"`
+}
+
+type TimeSeriesReadCancelRequest struct {
+	JobID uint32 `json:"jobId"`
 }
 
 type TimeSeriesDistinctTagValuesRequest struct {

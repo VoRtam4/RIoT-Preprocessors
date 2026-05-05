@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -90,6 +91,14 @@ func consumeWebSocket(client rabbitmq.Client, store *GTFSStore, config appConfig
 
 func buildWebSocketHeaders(wsURL string) http.Header {
 	header := http.Header{}
+
+	if authorization := firstNonEmpty(
+		getEnv("MHD_WS_AUTHORIZATION", ""),
+		getEnv("MHD_WS_AUTH", ""),
+		getEnv("WS_AUTHORIZATION", ""),
+	); authorization != "" {
+		header.Set("Authorization", authorization)
+	}
 
 	parsed, err := url.Parse(wsURL)
 	if err != nil {
@@ -196,9 +205,10 @@ func logUnmatchedRecord(record *liveRecord) {
 	}
 
 	unmatchedRecordsLogged[key] = struct{}{}
-	log.Printf("[MHD] Unmatched live record | lineid=%s routeid=%s vehicle=%s finalstopid=%s laststopid=%s lastupdate=%s",
+	log.Printf("[MHD] Unmatched live record | lineid=%s routeid=%s serviceid=%s vehicle=%s finalstopid=%s laststopid=%s lastupdate=%s",
 		record.LineID,
 		record.LiveRouteID,
+		record.ServiceID,
 		record.VehicleRuntimeID,
 		record.FinalStopID,
 		record.LastStopID,
@@ -246,27 +256,46 @@ func buildLiveRecordFromPayload(attributes map[string]interface{}, geometry map[
 
 	record.ObjectID = extractString(lookupAttribute(attributes, "objectid"))
 	record.GlobalID = extractString(lookupAttribute(attributes, "globalid"))
-	record.VehicleRuntimeID = extractString(lookupAttribute(attributes, "id"))
+	record.VehicleRuntimeID = extractString(lookupAttribute(attributes, "id", "CarNum"))
 	record.VehicleType = extractString(lookupAttribute(attributes, "vtype"))
 	record.LineType = extractString(lookupAttribute(attributes, "ltype"))
-	record.LineID = extractString(lookupAttribute(attributes, "lineid"))
-	record.LineName = extractString(lookupAttribute(attributes, "linename"))
-	record.LiveRouteID = extractString(lookupAttribute(attributes, "routeid"))
+	record.LineID = extractString(lookupAttribute(attributes, "lineid", "LineID"))
+	record.LineName = extractString(lookupAttribute(attributes, "linename", "LineName"))
+	record.LiveRouteID = extractString(lookupAttribute(attributes, "routeid", "RouteID"))
 	record.Course = extractString(lookupAttribute(attributes, "course"))
 	record.LowFloor = extractString(lookupAttribute(attributes, "lf"))
-	record.LastStopID = extractString(lookupAttribute(attributes, "laststopid"))
-	record.FinalStopID = extractString(lookupAttribute(attributes, "finalstopid"))
+	if record.LowFloor == "" {
+		if value, ok := extractBool(lookupAttribute(attributes, "IsBarrierLess")); ok {
+			record.LowFloor = extractString(value)
+		}
+	}
+	record.LastStopID = extractString(lookupAttribute(attributes, "laststopid", "LastStopID"))
+	record.LastPostID = extractString(lookupAttribute(attributes, "LastPostID"))
+	record.FinalStopID = extractString(lookupAttribute(attributes, "finalstopid", "FinalStopID"))
+	record.FinalStopName = extractString(lookupAttribute(attributes, "FinalStopName"))
+	record.ServiceID = extractString(lookupAttribute(attributes, "ServiceID"))
+	record.OCFinalStopID = extractString(lookupAttribute(attributes, "OCFinalStopID"))
+	record.OCFinalStopName = extractString(lookupAttribute(attributes, "OCFinalStopName"))
+	record.OCLineID = extractString(lookupAttribute(attributes, "OCLineID"))
+	record.OCLineName = extractString(lookupAttribute(attributes, "OCLineName"))
+	record.OCRouteID = extractString(lookupAttribute(attributes, "OCRouteID"))
+	record.State = extractString(lookupAttribute(attributes, "State"))
+	record.TMFlagText = extractString(lookupAttribute(attributes, "TMFlagText"))
 
-	if timestamp, ok := extractUnixMillis(lookupAttribute(attributes, "lastupdate", "timeupdated")); ok {
+	if timestamp, ok := extractTimestamp(lookupAttribute(attributes, "lastupdate", "timeupdated", "DepartureDT")); ok {
 		record.SourceTimestamp = timestamp
 	} else {
 		record.SourceTimestamp = time.Now().UTC()
 	}
+	if departure, ok := extractTimestamp(lookupAttribute(attributes, "DepartureDT")); ok {
+		record.ObservedDepartureTime = departure
+		record.ObservedDepartureValid = true
+	}
 
-	if value, ok := extractFloat(lookupAttribute(attributes, "lat")); ok {
+	if value, ok := extractFloat(lookupAttribute(attributes, "lat", "Latitude")); ok {
 		record.GeometryLat = value
 	}
-	if value, ok := extractFloat(lookupAttribute(attributes, "lng")); ok {
+	if value, ok := extractFloat(lookupAttribute(attributes, "lng", "Longitude")); ok {
 		record.GeometryLng = value
 	}
 	if value, ok := extractFloat(lookupAttribute(geometry, "y")); ok {
@@ -275,14 +304,20 @@ func buildLiveRecordFromPayload(attributes map[string]interface{}, geometry map[
 	if value, ok := extractFloat(lookupAttribute(geometry, "x")); ok {
 		record.GeometryLng = value
 	}
-	if value, ok := extractFloat(lookupAttribute(attributes, "bearing")); ok {
+	if value, ok := extractFloat(lookupAttribute(attributes, "bearing", "Azimut")); ok {
 		record.Bearing = value
 	}
-	if value, ok := extractFloat(lookupAttribute(attributes, "delay")); ok {
+	if value, ok := extractFloat(lookupAttribute(attributes, "delay", "DelayInMins")); ok {
 		record.Delay = value
 	}
 	if value, ok := extractBool(lookupAttribute(attributes, "isinactive")); ok {
 		record.IsInactive = value
+	}
+	if !record.IsInactive {
+		state := strings.TrimSpace(record.State)
+		if state != "" && state != "0" {
+			record.IsInactive = true
+		}
 	}
 
 	return record

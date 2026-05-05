@@ -75,18 +75,13 @@ func processMatchedRecord(client rabbitmq.Client, config appConfig, match *tripM
 	wasActive := state.CurrentlyActive
 	needsSyntheticStart := !state.SeenSinceStart &&
 		time.Since(preprocessorStartedAt) > config.StartupGracePeriod
-	now := time.Now().UTC()
-	shouldPublishActive := !wasActive || state.LastActivePublishAt.IsZero() || now.Sub(state.LastActivePublishAt) >= config.ActivePublishInterval
 	state.Tags = cloneTags(tags)
 	state.SeenSinceStart = true
-	state.CurrentlyActive = true
 	state.LastSourceTime = record.SourceTimestamp
 	state.LastOccurrenceAt = match.Occurrence.ScheduledStart
 	state.LastVehicleID = record.VehicleRuntimeID
 	state.CloseAt = match.Occurrence.ScheduledEnd.Add(config.TripEndReserve)
-	if shouldPublishActive {
-		state.LastActivePublishAt = now
-	}
+	state.CurrentlyActive = !record.IsInactive
 	instanceStatesMutex.Unlock()
 
 	if needsSyntheticStart {
@@ -95,11 +90,18 @@ func processMatchedRecord(client rabbitmq.Client, config appConfig, match *tripM
 		})
 	}
 
-	if shouldPublishActive {
-		publishStates(client, []sharedModel.KPIFulfillmentCheckRequestISCMessage{
-			buildStateMessage(match.Definition.UID, record.SourceTimestamp, buildActiveParams(tags, record, segment)),
-		})
+	if record.IsInactive {
+		if wasActive {
+			publishStates(client, []sharedModel.KPIFulfillmentCheckRequestISCMessage{
+				buildStateMessage(match.Definition.UID, record.SourceTimestamp, buildInactiveParams(tags)),
+			})
+		}
+		return
 	}
+
+	publishStates(client, []sharedModel.KPIFulfillmentCheckRequestISCMessage{
+		buildStateMessage(match.Definition.UID, record.SourceTimestamp, buildActiveParams(tags, record, segment)),
+	})
 }
 
 func closeExpiredInstances(client rabbitmq.Client, config appConfig, now time.Time) {
@@ -122,7 +124,6 @@ func closeExpiredInstances(client rabbitmq.Client, config appConfig, now time.Ti
 		}
 
 		state.CurrentlyActive = false
-		state.LastActivePublishAt = time.Time{}
 		toClose = append(toClose, closingPayload{
 			UID:  state.UID,
 			Tags: cloneTags(state.Tags),

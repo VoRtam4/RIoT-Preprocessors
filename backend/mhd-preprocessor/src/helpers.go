@@ -13,11 +13,30 @@ import (
 )
 
 func parseRawEnvelope(message []byte) (*rawEnvelope, error) {
-	var envelope rawEnvelope
-	if err := json.Unmarshal(message, &envelope); err != nil {
+	var payload map[string]interface{}
+	if err := json.Unmarshal(message, &payload); err != nil {
 		return nil, err
 	}
-	return &envelope, nil
+
+	envelope := &rawEnvelope{}
+	if attributes, ok := payload["attributes"].(map[string]interface{}); ok {
+		envelope.Attributes = attributes
+	}
+	if geometry, ok := payload["geometry"].(map[string]interface{}); ok {
+		envelope.Geometry = geometry
+	}
+	if filter, ok := payload["filter"].(map[string]interface{}); ok {
+		envelope.Filter = filter
+	}
+	if rawErr, ok := payload["error"]; ok {
+		envelope.Error = rawErr
+	}
+
+	if len(envelope.Attributes) == 0 && len(envelope.Geometry) == 0 {
+		envelope.Attributes = payload
+	}
+
+	return envelope, nil
 }
 
 func lookupAttribute(attributes map[string]interface{}, keys ...string) interface{} {
@@ -107,6 +126,28 @@ func extractBool(value interface{}) (bool, bool) {
 	default:
 		return false, false
 	}
+}
+
+func extractTimestamp(value interface{}) (time.Time, bool) {
+	if timestamp, ok := extractUnixMillis(value); ok {
+		return timestamp, true
+	}
+
+	switch typed := value.(type) {
+	case string:
+		trimmed := strings.TrimSpace(typed)
+		if trimmed == "" {
+			return time.Time{}, false
+		}
+		if parsed, err := time.Parse(time.RFC3339Nano, trimmed); err == nil {
+			return parsed.UTC(), true
+		}
+		if parsed, err := time.Parse(time.RFC3339, trimmed); err == nil {
+			return parsed.UTC(), true
+		}
+	}
+
+	return time.Time{}, false
 }
 
 func extractUnixMillis(value interface{}) (time.Time, bool) {

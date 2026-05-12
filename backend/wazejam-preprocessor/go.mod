@@ -1,4 +1,4 @@
-module WazeJam_preprocessor
+module wazejam-preprocessor
 
 go 1.22
 

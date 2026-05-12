@@ -48,7 +48,6 @@ func buildActiveParams(tags map[string]string, record *liveRecord, segment *segm
 	params["lf"] = record.LowFloor
 	params["laststopid"] = record.LastStopID
 	params["lastpostid"] = record.LastPostID
-	params["lastupdate"] = float64(record.SourceTimestamp.UnixMilli())
 	params["lat"] = record.GeometryLat
 	params["lng"] = record.GeometryLng
 	params["bearing"] = record.Bearing

@@ -1,3 +1,11 @@
+/**
+ * @file client.go
+ * @brief Sdílený RabbitMQ klient používaný RIoT preprocesory.
+ * @author Vojtěch Hubáček, Michal Bureš
+ * @defgroup riot_preprocessors_commons Commons
+ * @ingroup riot_preprocessors
+ * @see ../../README.md
+ */
 package rabbitmq
 
 import (

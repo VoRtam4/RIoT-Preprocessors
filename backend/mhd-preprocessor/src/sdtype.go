@@ -31,7 +31,6 @@ func registerSDType(client rabbitmq.Client) {
 		{Denotation: "lf", Label: "Low Floor", Type: sharedModel.SDParameterTypeString, Role: sharedModel.SDParameterRoleField},
 		{Denotation: "laststopid", Label: "Last Stop ID", Type: sharedModel.SDParameterTypeString, Role: sharedModel.SDParameterRoleField},
 		{Denotation: "lastpostid", Label: "Last Post ID", Type: sharedModel.SDParameterTypeString, Role: sharedModel.SDParameterRoleField},
-		{Denotation: "lastupdate", Label: "Last Update", Type: sharedModel.SDParameterTypeNumber, Role: sharedModel.SDParameterRoleField},
 		{Denotation: "lat", Label: "Latitude", Type: sharedModel.SDParameterTypeNumber, Role: sharedModel.SDParameterRoleField},
 		{Denotation: "lng", Label: "Longitude", Type: sharedModel.SDParameterTypeNumber, Role: sharedModel.SDParameterRoleField},
 		{Denotation: "bearing", Label: "Bearing", Type: sharedModel.SDParameterTypeNumber, Role: sharedModel.SDParameterRoleField},

@@ -7,10 +7,15 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
+
+	"golang.org/x/text/encoding/charmap"
 )
+
+var sourceIDLocationPattern = regexp.MustCompile(`^TS(\d+)T(\d+)$`)
 
 type tmcEnricher struct {
 	tmcDir      string
@@ -43,14 +48,39 @@ func (e *tmcEnricher) enrichFetch(fetch *parsedFetch) {
 	}
 
 	for _, snapshot := range fetch.Snapshots {
-		locationCode := firstNonEmpty(snapshot.PrimaryLocationCode, snapshot.SecondaryLocationCode)
-		if locationCode == "" {
-			continue
+		ensureSnapshotLocationCodes(snapshot)
+
+		candidates := []string{
+			snapshot.PrimaryLocationCode,
+			snapshot.SecondaryLocationCode,
 		}
-		if metadata := e.lookup(locationCode); metadata != nil {
-			snapshot.TMCMetadata = metadata
+		for _, locationCode := range candidates {
+			if locationCode == "" {
+				continue
+			}
+			if metadata := e.lookup(locationCode); metadata != nil {
+				snapshot.TMCMetadata = metadata
+				break
+			}
 		}
 	}
+}
+
+func ensureSnapshotLocationCodes(snapshot *ndicSnapshot) {
+	if snapshot == nil {
+		return
+	}
+	if snapshot.PrimaryLocationCode != "" || snapshot.SecondaryLocationCode != "" {
+		return
+	}
+
+	match := sourceIDLocationPattern.FindStringSubmatch(strings.TrimSpace(snapshot.SourceIdentification))
+	if len(match) != 3 {
+		return
+	}
+
+	snapshot.PrimaryLocationCode = match[1]
+	snapshot.SecondaryLocationCode = match[2]
 }
 
 func (e *tmcEnricher) isLoaded() bool {
@@ -83,13 +113,17 @@ func (e *tmcEnricher) load() error {
 
 func loadTMCPoints(baseDir string) ([]map[string]string, error) {
 	pointsPath := filepath.Join(baseDir, "ltcze10_1_points.txt")
-	file, err := os.Open(pointsPath)
+	rawData, err := os.ReadFile(pointsPath)
 	if err != nil {
 		return nil, fmt.Errorf("open TMC points file: %w", err)
 	}
-	defer file.Close()
 
-	reader := csv.NewReader(file)
+	decoded, err := charmap.Windows1250.NewDecoder().String(string(rawData))
+	if err != nil {
+		return nil, fmt.Errorf("decode TMC points file: %w", err)
+	}
+
+	reader := csv.NewReader(strings.NewReader(decoded))
 	reader.Comma = ';'
 	reader.LazyQuotes = true
 	reader.FieldsPerRecord = -1

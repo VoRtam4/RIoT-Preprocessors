@@ -3,6 +3,8 @@ package sharedConstants
 const (
 	BuiltInFanoutExchangeName                             = "amq.fanout"
 	MessageProcessingUnitConnectionNotificationsQueueName = "message-processing-unit-connection-notifications"
+	RawDataPointCacheBootstrapQueueName                   = "raw-data-point-cache-bootstrap"
+	KPIFulfillmentCacheBootstrapQueueName                 = "kpi-fulfillment-cache-bootstrap"
 	KPIFulfillmentCheckRequestsQueueName                  = "kpi-fulfillment-check-requests"
 	KPIFulfillmentCheckResultsQueueName                   = "kpi-fulfillment-check-results"
 	RawDataPointQueueName                                 = "raw-data-point"

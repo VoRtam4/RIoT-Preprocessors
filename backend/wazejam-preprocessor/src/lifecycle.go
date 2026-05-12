@@ -29,7 +29,6 @@ func registerSDType(client rabbitmq.Client) {
 		{Denotation: "speed", Label: "Speed", Type: sharedModel.SDParameterTypeNumber, Role: sharedModel.SDParameterRoleField},
 		{Denotation: "speedKPH", Label: "Speed KPH", Type: sharedModel.SDParameterTypeNumber, Role: sharedModel.SDParameterRoleField},
 		{Denotation: "jamCount", Label: "Jam Count", Type: sharedModel.SDParameterTypeNumber, Role: sharedModel.SDParameterRoleField},
-		{Denotation: "pubMillisLatest", Label: "Latest Publication Time", Type: sharedModel.SDParameterTypeNumber, Role: sharedModel.SDParameterRoleField},
 		{Denotation: "rawJams", Label: "Raw Jams", Type: sharedModel.SDParameterTypeString, Role: sharedModel.SDParameterRoleField},
 	}
 

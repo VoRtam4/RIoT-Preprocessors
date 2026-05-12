@@ -1,3 +1,11 @@
+/**
+ * @file main.go
+ * @brief Vstupní bod Waze Jam preprocesoru pro platformu RIoT.
+ * @author Vojtěch Hubáček, Dominik Vondruška
+ * @defgroup riot_waze_preprocessor Waze Jam preprocesor
+ * @ingroup riot_preprocessors
+ * @see ../README.md
+ */
 package main
 
 import (

@@ -13,9 +13,9 @@ type parsedFetch struct {
 
 type ndicSnapshot struct {
 	SourceIdentification   string
+	EventTime              time.Time
 	PrimaryLocationCode    string
 	SecondaryLocationCode  string
-	AlertCDirection        string
 	TMCMetadata            *tmcMetadata
 	TrafficLevelAnyVehicle *int
 	TrafficSpeedAnyVehicle *float64
@@ -24,12 +24,13 @@ type ndicSnapshot struct {
 }
 
 type ndicRawEntry struct {
-	Type              string   `json:"type"`
-	VehicleType       string   `json:"vehicleType,omitempty"`
-	QualifierType     string   `json:"qualifierType,omitempty"`
-	TrafficLevelValue string   `json:"trafficLevelValue,omitempty"`
-	Speed             *float64 `json:"speed,omitempty"`
-	Duration          *float64 `json:"duration,omitempty"`
+	Type              string    `json:"type"`
+	EventTime         time.Time `json:"-"`
+	VehicleType       string    `json:"vehicleType,omitempty"`
+	QualifierType     string    `json:"qualifierType,omitempty"`
+	TrafficLevelValue string    `json:"trafficLevelValue,omitempty"`
+	Speed             *float64  `json:"speed,omitempty"`
+	Duration          *float64  `json:"duration,omitempty"`
 }
 
 type tmcMetadata struct {

@@ -1,5 +1,10 @@
 """
-Minimalni push prijimac DATEX II pro NDIC preprocessor.
+@file main.py
+@brief FastAPI přijímač DATEX II zpráv používaný NDIC preprocesorem.
+@author Vojtěch Hubáček, Dominik Vondruška
+@defgroup riot_datex_downloader DATEX Downloader
+@ingroup riot_preprocessors
+@see ../README.md
 """
 from datetime import datetime, timezone
 import gzip

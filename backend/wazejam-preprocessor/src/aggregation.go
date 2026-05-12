@@ -90,7 +90,6 @@ func buildActiveParams(aggregate *deviceAggregate) map[string]interface{} {
 	params["speed"] = aggregate.Speed
 	params["speedKPH"] = aggregate.SpeedKPH
 	params["jamCount"] = float64(aggregate.JamCount)
-	params["pubMillisLatest"] = float64(aggregate.PubMillisLatest)
 
 	sortRawJams(aggregate.RawJams)
 	rawJamsJSON, err := json.Marshal(aggregate.RawJams)

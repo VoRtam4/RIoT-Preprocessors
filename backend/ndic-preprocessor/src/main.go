@@ -1,3 +1,11 @@
+/**
+ * @file main.go
+ * @brief Vstupní bod NDIC preprocesoru pro platformu RIoT.
+ * @author Vojtěch Hubáček, Dominik Vondruška
+ * @defgroup riot_ndic_preprocessor NDIC preprocesor
+ * @ingroup riot_preprocessors
+ * @see ../README.md
+ */
 package main
 
 import (

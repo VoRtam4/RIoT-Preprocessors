@@ -63,11 +63,16 @@ func processFetchResult(client rabbitmq.Client, config appConfig, fetch *parsedF
 
 	for sourceID, snapshot := range fetch.Snapshots {
 		uid := ndicInstanceUID(sourceID)
+		label := buildNDICInstanceLabel(snapshot)
+		eventTime := snapshot.EventTime
+		if eventTime.IsZero() {
+			eventTime = fetch.PublicationTime
+		}
 		currentUIDs[uid] = struct{}{}
 		tags := buildTags(snapshot)
 
 		if shouldRegisterInstance(uid) {
-			registrationMessages = append(registrationMessages, buildSDInstanceRegistrationMessage(uid, uid))
+			registrationMessages = append(registrationMessages, buildSDInstanceRegistrationMessage(uid, label))
 			markInstanceRegistered(uid)
 		}
 
@@ -76,25 +81,26 @@ func processFetchResult(client rabbitmq.Client, config appConfig, fetch *parsedF
 		if !exists {
 			state = &runtimeInstanceState{
 				UID:   uid,
-				Label: uid,
+				Label: label,
 				Tags:  cloneTags(tags),
 			}
 			instanceStates[uid] = state
 		}
+		state.Label = label
 		state.Tags = cloneTags(tags)
 		needsSyntheticStart := !state.SeenSinceStart &&
 			fetch.PublicationTime.After(preprocessorStartedAt) &&
 			time.Since(preprocessorStartedAt) > config.StartupGracePeriod
 		state.SeenSinceStart = true
 		state.CurrentlyActive = true
-		state.LastEventTime = fetch.PublicationTime
+		state.LastEventTime = eventTime
 		instanceStatesMutex.Unlock()
 
 		if needsSyntheticStart {
 			stateMessages = append(stateMessages, buildStateMessage(uid, jitterTime(preprocessorStartedAt, config.SyntheticJitter), buildInactiveParams(tags)))
 		}
 
-		stateMessages = append(stateMessages, buildStateMessage(uid, fetch.PublicationTime, buildActiveParams(tags, snapshot, fetch.PublicationTime)))
+		stateMessages = append(stateMessages, buildStateMessage(uid, eventTime, buildActiveParams(tags, snapshot)))
 	}
 
 	if len(registrationMessages) > 0 {

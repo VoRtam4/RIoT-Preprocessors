@@ -282,7 +282,7 @@ func buildLiveRecordFromPayload(attributes map[string]interface{}, geometry map[
 	record.State = extractString(lookupAttribute(attributes, "State"))
 	record.TMFlagText = extractString(lookupAttribute(attributes, "TMFlagText"))
 
-	if timestamp, ok := extractTimestamp(lookupAttribute(attributes, "lastupdate", "timeupdated", "DepartureDT")); ok {
+	if timestamp, ok := extractTimestamp(lookupAttribute(attributes, "lastupdate", "timeupdated")); ok {
 		record.SourceTimestamp = timestamp
 	} else {
 		record.SourceTimestamp = time.Now().UTC()

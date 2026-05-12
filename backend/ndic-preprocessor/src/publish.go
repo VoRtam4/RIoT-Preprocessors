@@ -22,9 +22,6 @@ func buildTags(snapshot *ndicSnapshot) map[string]string {
 	if snapshot.SecondaryLocationCode != "" {
 		tags["secondaryLocationCode"] = snapshot.SecondaryLocationCode
 	}
-	if snapshot.AlertCDirection != "" {
-		tags["alertCDirection"] = snapshot.AlertCDirection
-	}
 	if snapshot.TMCMetadata != nil {
 		if snapshot.TMCMetadata.LocationCode != "" {
 			tags["tmcLocationCode"] = snapshot.TMCMetadata.LocationCode
@@ -54,7 +51,7 @@ func buildTags(snapshot *ndicSnapshot) map[string]string {
 	return tags
 }
 
-func buildActiveParams(tags map[string]string, snapshot *ndicSnapshot, publicationTime time.Time) map[string]interface{} {
+func buildActiveParams(tags map[string]string, snapshot *ndicSnapshot) map[string]interface{} {
 	params := tagsToParams(tags)
 	if snapshot.TrafficLevelAnyVehicle != nil {
 		params["trafficLevelAnyVehicle"] = float64(*snapshot.TrafficLevelAnyVehicle)
@@ -65,7 +62,6 @@ func buildActiveParams(tags map[string]string, snapshot *ndicSnapshot, publicati
 	if snapshot.TravelTimeAnyVehicle != nil {
 		params["travelTimeAnyVehicle"] = *snapshot.TravelTimeAnyVehicle
 	}
-	params["publicationTimestamp"] = float64(publicationTime.UnixMilli())
 	params["isInactive"] = false
 	if snapshot.TMCMetadata != nil {
 		if snapshot.TMCMetadata.Latitude != nil {

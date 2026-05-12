@@ -61,10 +61,9 @@ func parseNDICXML(xmlBytes []byte) (*parsedFetch, error) {
 		if snapshot.SecondaryLocationCode == "" {
 			snapshot.SecondaryLocationCode = location.SecondaryLocationCode
 		}
-		if snapshot.AlertCDirection == "" {
-			snapshot.AlertCDirection = location.AlertCDirection
+		if !entry.EventTime.IsZero() && (snapshot.EventTime.IsZero() || entry.EventTime.After(snapshot.EventTime)) {
+			snapshot.EventTime = entry.EventTime
 		}
-
 		snapshot.RawEntries = append(snapshot.RawEntries, *entry)
 
 		switch dataType {
@@ -125,7 +124,6 @@ func decodeElaboratedPayload(decoder *xml.Decoder, start xml.StartElement) (stri
 type elaboratedLocation struct {
 	PrimaryLocationCode   string
 	SecondaryLocationCode string
-	AlertCDirection       string
 }
 
 func parseElaboratedData(payload []byte) (string, string, elaboratedLocation, *ndicRawEntry, error) {
@@ -158,11 +156,6 @@ func parseElaboratedData(payload []byte) (string, string, elaboratedLocation, *n
 				}
 				if err := decoder.DecodeElement(&src, &typed); err == nil {
 					sourceID = strings.TrimSpace(src.ID)
-				}
-			case "alertCDirectionCoded":
-				var direction string
-				if err := decoder.DecodeElement(&direction, &typed); err == nil {
-					location.AlertCDirection = strings.TrimSpace(direction)
 				}
 			case "specificLocation":
 				var code string
@@ -237,7 +230,8 @@ func decodeBasicData(decoder *xml.Decoder, start xml.StartElement, dataType stri
 	switch dataType {
 	case "TrafficStatus":
 		var payload struct {
-			Extension struct {
+			MeasurementOrCalculationTime string `xml:"measurementOrCalculationTime"`
+			Extension                    struct {
 				NDIC struct {
 					VehicleType  string `xml:"vehicleType"`
 					TrafficLevel struct {
@@ -251,13 +245,15 @@ func decodeBasicData(decoder *xml.Decoder, start xml.StartElement, dataType stri
 		}
 		entry := &ndicRawEntry{
 			Type:              dataType,
+			EventTime:         parseOptionalRFC3339(payload.MeasurementOrCalculationTime),
 			VehicleType:       payload.Extension.NDIC.VehicleType,
 			TrafficLevelValue: payload.Extension.NDIC.TrafficLevel.Value,
 		}
 		return entry, payload.Extension.NDIC.VehicleType == "anyVehicle", nil
 	case "TrafficSpeed":
 		var payload struct {
-			ForVehicles struct {
+			MeasurementOrCalculationTime string `xml:"measurementOrCalculationTime"`
+			ForVehicles                  struct {
 				VehicleType string `xml:"vehicleType"`
 			} `xml:"forVehiclesWithCharacteristicsOf"`
 			AverageVehicleSpeed struct {
@@ -270,6 +266,7 @@ func decodeBasicData(decoder *xml.Decoder, start xml.StartElement, dataType stri
 		speed := payload.AverageVehicleSpeed.Speed
 		entry := &ndicRawEntry{
 			Type:          dataType,
+			EventTime:     parseOptionalRFC3339(payload.MeasurementOrCalculationTime),
 			VehicleType:   payload.ForVehicles.VehicleType,
 			QualifierType: payload.ForVehicles.VehicleType,
 			Speed:         &speed,
@@ -277,8 +274,9 @@ func decodeBasicData(decoder *xml.Decoder, start xml.StartElement, dataType stri
 		return entry, payload.ForVehicles.VehicleType == "anyVehicle", nil
 	case "TravelTimeData":
 		var payload struct {
-			VehicleType string `xml:"vehicleType"`
-			TravelTime  struct {
+			MeasurementOrCalculationTime string `xml:"measurementOrCalculationTime"`
+			VehicleType                  string `xml:"vehicleType"`
+			TravelTime                   struct {
 				Duration float64 `xml:"duration"`
 			} `xml:"travelTime"`
 		}
@@ -288,6 +286,7 @@ func decodeBasicData(decoder *xml.Decoder, start xml.StartElement, dataType stri
 		duration := payload.TravelTime.Duration
 		entry := &ndicRawEntry{
 			Type:        dataType,
+			EventTime:   parseOptionalRFC3339(payload.MeasurementOrCalculationTime),
 			VehicleType: payload.VehicleType,
 			Duration:    &duration,
 		}
@@ -308,4 +307,18 @@ func trafficLevelValue(value string) int {
 		}
 	}
 	return 0
+}
+
+func parseOptionalRFC3339(value string) time.Time {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return time.Time{}
+	}
+
+	parsed, err := time.Parse(time.RFC3339, trimmed)
+	if err != nil {
+		return time.Time{}
+	}
+
+	return parsed.UTC()
 }

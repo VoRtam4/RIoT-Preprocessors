@@ -1,3 +1,11 @@
+/**
+ * @file main.go
+ * @brief Vstupní bod MHD preprocesoru pro platformu RIoT.
+ * @author Vojtěch Hubáček, Dominik Vondruška
+ * @defgroup riot_mhd_preprocessor MHD preprocesor
+ * @ingroup riot_preprocessors
+ * @see ../README.md
+ */
 package main
 
 import (

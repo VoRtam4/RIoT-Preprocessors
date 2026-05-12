@@ -2,7 +2,9 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/rand"
+	"strings"
 	"time"
 )
 
@@ -28,4 +30,46 @@ func mustJSON(value interface{}) string {
 		return "{}"
 	}
 	return string(payload)
+}
+
+func buildNDICInstanceLabel(snapshot *ndicSnapshot) string {
+	if snapshot == nil {
+		return "Unknown | Unknown [Unknown]"
+	}
+
+	locationCode := firstNonEmpty(
+		valueOrEmpty(snapshot.TMCMetadata, func(meta *tmcMetadata) string { return meta.LocationCode }),
+		snapshot.PrimaryLocationCode,
+		snapshot.SecondaryLocationCode,
+	)
+	road := firstNonEmpty(
+		valueOrEmpty(snapshot.TMCMetadata, func(meta *tmcMetadata) string { return meta.RoadNumber }),
+		valueOrEmpty(snapshot.TMCMetadata, func(meta *tmcMetadata) string { return meta.RoadName }),
+	)
+	point := firstNonEmpty(
+		valueOrEmpty(snapshot.TMCMetadata, func(meta *tmcMetadata) string { return meta.PointName }),
+		valueOrEmpty(snapshot.TMCMetadata, func(meta *tmcMetadata) string { return meta.AreaName }),
+	)
+
+	return fmt.Sprintf(
+		"%s | %s [%s]",
+		friendlyNDICLabel(road),
+		friendlyNDICLabel(point),
+		friendlyNDICLabel(locationCode),
+	)
+}
+
+func valueOrEmpty[T any](value *T, getter func(*T) string) string {
+	if value == nil {
+		return ""
+	}
+	return strings.TrimSpace(getter(value))
+}
+
+func friendlyNDICLabel(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "Unknown"
+	}
+	return value
 }

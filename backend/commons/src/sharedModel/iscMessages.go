@@ -10,6 +10,11 @@ type RawDataPointISCMessage struct {
 	Payload       []byte    `json:"payload"`
 }
 
+type RawDataPointCacheBootstrapISCMessage struct {
+	Tuple []RawDataPointISCMessage `json:"tuple"`
+	Done  bool                     `json:"done"`
+}
+
 type KPIFulfillmentCheckRequestTupleISCMessage []KPIFulfillmentCheckRequestISCMessage
 
 type KPIFulfillmentCheckResultTupleISCMessage struct {
@@ -23,6 +28,11 @@ type KPIFulfillmentCheckResultISCMessage struct {
 	KPIDefinitionID uint32    `json:"kpiDefinitionID"`
 	EventTime       time.Time `json:"eventTime"`
 	Fulfilled       bool      `json:"fulfilled"`
+}
+
+type KPIFulfillmentCacheBootstrapISCMessage struct {
+	Tuple []KPIFulfillmentCheckResultISCMessage `json:"tuple"`
+	Done  bool                                  `json:"done"`
 }
 
 type KPIFulfillmentCheckRequestISCMessage struct {

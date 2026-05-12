@@ -2,7 +2,10 @@ module ndic-preprocessor
 
 go 1.22
 
-require github.com/MichalBures-OG/bp-bures-RIoT-commons v0.0.0-00010101000000-000000000000
+require (
+	github.com/MichalBures-OG/bp-bures-RIoT-commons v0.0.0-00010101000000-000000000000
+	golang.org/x/text v0.22.0
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect

@@ -1,49 +1,56 @@
-# MHD Preprocessor
+# MHD preprocesor
 
-**MHD Preprocessor** je modul systému, který zpracovává real‑time data o poloze vozidel městské hromadné dopravy v Brně.  
-Preferuje živý WebSocket stream, při jeho výpadku nebo delší neaktivitě automaticky přepne na REST polling, data dál páruje s GTFS a odesílá do systému zprávy o KPI a registraci SD instancí.
+MHD preprocesor zpracovává živá data o vozidlech městské hromadné dopravy a převádí je na stavové zprávy pro RIoT. Kombinuje WebSocket stream s GTFS daty, podle jízdních řádů páruje příchozí polohy na konkrétní spoje a vytváří instance typu `MHD_TRIP`. Do systému posílá registrace typu zdroje dat, registrace instancí a průběžné stavy spojů určené pro vyhodnocení KPI.
 
----
+Modul udržuje runtime stav aktivních spojů. Pokud spoj přestane být aktivní nebo doběhne jeho plánovaný interval, odešle neaktivní stav, aby navazující zpracování dokázalo zaznamenat ukončení jízdy.
 
-## Účel modulu
-- Připojuje se na **WebSocket města Brna** a odebírá data o aktuálních polohách vozidel MHD (tramvaje, autobusy, trolejbusy).  
-- **Mapuje data na SD instance** systému (např. MHD_TRIP_<hash>) a rozhoduje, zda je instance již potvrzená či nová.  
-- Odesílá **KPI požadavky** a v případě nových spojů také **žádosti o registraci SD instancí** do RabbitMQ.  
+## Spuštění
 
----
+Modul se běžně spouští z kořene repozitáře preprocesorů přes hlavní `docker-compose.yml`:
 
-## Hlavní funkce
-- **WebSocket listener** – kontinuálně přijímá polohová data z endpointu GIS Brno.  
-- **REST polling fallback** – pokud WebSocket nepřináší data nebo je nedostupný, modul přejde na polling ArcGIS FeatureServeru a stejná data žene stejnou zpracovatelskou pipeline.  
-- **Vestavěný GTFS enricher** – periodicky stahuje GTFS archiv, sestavuje interní definice spojů a zajišťuje stabilní identifikaci jízd bez potřeby samostatné služby `gtfs-core`.  
-- **RabbitMQ komunikace** – odesílá KPI a registrační zprávy, přijímá aktualizace seznamů SD typů a instancí.  
+```bash
+docker compose up -d myrta-mhd-preprocessor
+```
 
----
+Preprocesor nemá vlastní veřejný port. Z hlediska kontejnerů potřebuje dostupný RabbitMQ z hlavní sestavy systému a externí zdroje MHD WebSocket a GTFS. Při běhu v samostatné sestavě musí být připojený do stejné Docker sítě jako hlavní RIoT stack, typicky `riot_default`, aby dosáhl na službu `rabbitmq`. Proměnná `RABBITMQ_URL` by proto v kontejneru měla směřovat na `amqp://riot:secret@rabbitmq:5672`, případně na odpovídající hodnotu z hlavní konfigurace.
 
-## Datové toky
-- **Vstup:** preferovaný WebSocket stream `wss://gis.brno.cz/geoevent/...` a fallback REST polling ArcGIS `FeatureServer/query`.  
-- **Výstup:** RabbitMQ fronty:
-  - `KPIFulfillmentCheckRequestsQueue` – KPI požadavky.  
-  - `SDInstanceRegistrationRequestsQueue` – registrace nových SD instancí.
+## Konfigurace
 
----
+Hlavní proměnné prostředí používané modulem:
 
-## Struktura projektu
-- **main.go** – hlavní soubor, nastavuje spojení (WebSocket, polling fallback, RabbitMQ) a spouští zpracování.  
-- **processWebSocketMessage / poll_source.go** – logika pro přijetí zpráv z WebSocketu i pollingu a jejich převedení na společný interní záznam.  
-- **gtfs_store.go** – lokální načítání a parsování GTFS dat a sestavení stabilních definic jízd.  
+- `RABBITMQ_URL`: připojovací řetězec k RabbitMQ
+- `MHD_WS_URL`: WebSocket endpoint s živými polohami vozidel
+- `MHD_GTFS_URL`: URL GTFS archivu
+- `MHD_WS_AUTHORIZATION`: hodnota hlavičky `Authorization` pro WebSocket zdroj
+- `MHD_WS_AUTH`: alternativní název proměnné pro WebSocket autorizaci
+- `WS_AUTHORIZATION`: obecná fallback proměnná pro WebSocket autorizaci
 
----
+Pokud `MHD_WS_URL` nebo `MHD_GTFS_URL` nejsou nastavené, modul použije výchozí adresy definované v `src/config.go`.
 
-## Konfigurace fallbacku
-- `MHD_WS_URL` – volitelný override preferovaného WebSocket endpointu.
-- `MHD_POLLING_URL` – volitelný override REST endpointu pro polling fallback.
-- `MHD_GTFS_URL` – volitelný override GTFS archivu.
+## RabbitMQ komunikace
 
-Časování fallbacku, polling interval, reconnect delay a ostatní režijní hodnoty jsou záměrně definované jen v interním configu preprocessoru jako konstanty v `config.go`, ne přes ENV.
+Typické přijímané fronty a zprávy:
 
----
+- `set-of-sd-instances-updates`: aktuální seznam instancí známých Backend Core
 
-## Kontext použití
-MHD Preprocessor funguje jako **real‑time most** mezi živým datovým tokem MHD a backendem.  
-Díky vlastnímu zpracování GTFS i živých WebSocket zpráv může modul fungovat samostatně bez odděleného GTFS modulu a systém tak získává v reálném čase informace o provozu MHD pro vyhodnocování KPI a správu SD instancí.
+Typické odesílané fronty a zprávy:
+
+- `sd-type-registration-requests`: registrace typu zdroje dat `MHD_TRIP`
+- `sd-instance-registration-requests`: registrace konkrétních jízd jako SD instancí
+- `kpi-fulfillment-check-requests`: stavové zprávy spojů určené pro MPU a vyhodnocení KPI
+
+## Struktura modulu
+
+- `Dockerfile`: build Go aplikace společně s lokálním modulem `commons`
+- `go.mod`, `go.sum`: Go modul a závislosti
+- `src/main.go`: inicializace modulu, registrace typu, načtení GTFS a spuštění WebSocket loopu
+- `src/config.go`: výchozí adresy zdrojů a runtime konfigurace
+- `src/gtfs_store.go`: stahování, parsování a ukládání GTFS definic spojů
+- `src/ws_source.go`: připojení k WebSocket zdroji a zpracování živých zpráv
+- `src/matching.go`: párování živých dat na GTFS spoje
+- `src/segment.go`: určení aktivního segmentu mezi zastávkami
+- `src/runtime.go`: runtime stav instancí a uzavírání doběhnutých jízd
+- `src/publish.go`: publikování registrací a stavových zpráv do RabbitMQ
+- `src/sdtype.go`: definice parametrů typu `MHD_TRIP`
+- `src/model.go`: datové struktury živých záznamů a GTFS spojů
+- `src/helpers.go`: pomocné funkce pro čas, identifikátory, hodnoty a práci s CSV

@@ -1,3 +1,15 @@
+/**
+ * @file parser.go
+ * @brief Parser DATEX II zpráv na NDIC snapshoty používané RIoT preprocesorem.
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ * @ingroup riot_ndic_preprocessor
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: základní parsing dopravních zpráv do interní podoby.
+ * - Vojtěch Hubáček: doplnění EventTime, agregovaných hodnot pro vozidla a vazby na segmentovou reprezentaci.
+ */
 package main
 
 import (

@@ -1,3 +1,15 @@
+/**
+ * @file lifecycle.go
+ * @brief Životní cyklus WazeJam preprocesoru od registrace typu po periodické publikování dat.
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ * @ingroup riot_wazejam_preprocessor
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: původní tok registrace sdtype, příjmu Waze zpráv, transformace a publikace do RIoT.
+ * - Vojtěch Hubáček: rozšíření toku na segment jako instanci, registraci instancí, EventTime a jam count/raw jam data.
+ */
 package main
 
 import (

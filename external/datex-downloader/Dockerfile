@@ -1,3 +1,11 @@
+# @file Dockerfile
+# @brief Docker image pro DATEX downloader.
+#
+# @author Dominik Vondruška
+# @ingroup riot_datex_downloader
+#
+# @par Autorský podíl
+# - Dominik Vondruška: návrh a implementace celé provozní konfigurace souboru.
 FROM python:3.11-slim
 
 WORKDIR /app

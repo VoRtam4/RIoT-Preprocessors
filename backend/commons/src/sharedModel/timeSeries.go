@@ -1,3 +1,13 @@
+/**
+ * @file timeSeries.go
+ * @brief Sdílené modely pro čtení, zápis a export časových řad.
+ *
+ * @author Vojtěch Hubáček
+ * @ingroup riot_preprocessors_commons
+ *
+ * @par Autorský podíl
+ * - Vojtěch Hubáček: převzetí, údržba a doplnění sdílených kontraktů potřebných pro preprocesory v rámci samostatného repozitáře.
+ */
 package sharedModel
 
 import (

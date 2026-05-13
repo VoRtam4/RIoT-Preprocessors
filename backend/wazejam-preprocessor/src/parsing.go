@@ -1,3 +1,15 @@
+/**
+ * @file parsing.go
+ * @brief Parsing Waze dat do segmentových struktur a normalizovaných hodnot pro RIoT.
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ * @ingroup riot_wazejam_preprocessor
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: základní transformace Waze zpráv do interní podoby.
+ * - Vojtěch Hubáček: rozšíření modelu z ulice na segment ulice, doplnění EventTime, labelů a raw jam reprezentace.
+ */
 package main
 
 import (

@@ -1,3 +1,15 @@
+/**
+ * @file config.go
+ * @brief Konfigurace NDIC preprocesoru, DATEX zdroje a TMC obohacení.
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ * @ingroup riot_ndic_preprocessor
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: základní konfigurační vazba preprocesoru na zdroj dat a RIoT.
+ * - Vojtěch Hubáček: doplnění konfigurace DATEX downloaderu, TMC statických dat a runtime zpracování instancí.
+ */
 package main
 
 import (

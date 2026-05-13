@@ -1,10 +1,17 @@
 /**
  * @file main.go
  * @brief Vstupní bod NDIC preprocesoru pro platformu RIoT.
- * @author Vojtěch Hubáček, Dominik Vondruška
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ *
  * @defgroup riot_ndic_preprocessor NDIC preprocesor
  * @ingroup riot_preprocessors
  * @see ../README.md
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: původní životní cyklus preprocesoru se sdtype registrací, příjmem zpráv a publikací do RIoT.
+ * - Vojtěch Hubáček: doplnění registrace instancí, TMC obohacení, runtime stavů a nulových dat pro neaktivní segmenty.
  */
 package main
 

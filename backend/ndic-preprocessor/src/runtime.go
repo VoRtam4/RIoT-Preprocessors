@@ -1,3 +1,13 @@
+/**
+ * @file runtime.go
+ * @brief Runtime evidence NDIC silničních segmentů a jejich aktivity.
+ *
+ * @author Vojtěch Hubáček
+ * @ingroup riot_ndic_preprocessor
+ *
+ * @par Autorský podíl
+ * - Vojtěch Hubáček: návrh a implementace celé funkcionality souboru.
+ */
 package main
 
 import (

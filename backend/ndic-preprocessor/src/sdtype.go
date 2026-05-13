@@ -1,3 +1,15 @@
+/**
+ * @file sdtype.go
+ * @brief Definice NDIC sledovaného typu a jeho parametrů pro RIoT.
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ * @ingroup riot_ndic_preprocessor
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: původní registrace sledovaného typu.
+ * - Vojtěch Hubáček: rozšíření parametrů, labelů, tag/field členění a významu instance jako silničního segmentu.
+ */
 package main
 
 import (

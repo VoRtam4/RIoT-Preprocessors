@@ -1,3 +1,13 @@
+/**
+ * @file iscMessages.go
+ * @brief Sdílené modely interních zpráv mezi preprocesory, Backend Core a zpracováním dat.
+ *
+ * @author Vojtěch Hubáček
+ * @ingroup riot_preprocessors_commons
+ *
+ * @par Autorský podíl
+ * - Vojtěch Hubáček: převzetí, údržba a doplnění sdílených kontraktů potřebných pro preprocesory v rámci samostatného repozitáře.
+ */
 package sharedModel
 
 import "time"

@@ -1,3 +1,15 @@
+/**
+ * @file fetch.go
+ * @brief Stahování aktuálních DATEX II zpráv pro NDIC preprocesor.
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ * @ingroup riot_ndic_preprocessor
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: původní příjem zpráv ze zdroje.
+ * - Vojtěch Hubáček: úprava toku pro napojení na DATEX downloader a navazující TMC obohacení.
+ */
 package main
 
 import (

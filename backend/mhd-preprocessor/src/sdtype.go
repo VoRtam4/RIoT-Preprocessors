@@ -1,3 +1,15 @@
+/**
+ * @file sdtype.go
+ * @brief Definice MHD sledovaného typu a jeho parametrů pro RIoT.
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ * @ingroup riot_mhd_preprocessor
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: původní registrace sledovaného typu.
+ * - Vojtěch Hubáček: rozšíření parametrů, labelů, tag/field členění a významu instance jako linky v daný čas dne.
+ */
 package main
 
 import (

@@ -1,3 +1,15 @@
+/**
+ * @file publish.go
+ * @brief Publikace MHD sdtype, instancí a datových bodů do RabbitMQ front RIoT.
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ * @ingroup riot_mhd_preprocessor
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: základní publikace transformovaných dat do RIoT.
+ * - Vojtěch Hubáček: doplnění registrace instancí, tag/field parametrů, EventTime a nulových zpráv pro neaktivní instance.
+ */
 package main
 
 import (

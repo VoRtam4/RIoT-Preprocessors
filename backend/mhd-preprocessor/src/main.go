@@ -1,10 +1,17 @@
 /**
  * @file main.go
  * @brief Vstupní bod MHD preprocesoru pro platformu RIoT.
- * @author Vojtěch Hubáček, Dominik Vondruška
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ *
  * @defgroup riot_mhd_preprocessor MHD preprocesor
  * @ingroup riot_preprocessors
  * @see ../README.md
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: původní životní cyklus preprocesoru se sdtype registrací, příjmem zpráv a publikací do RIoT.
+ * - Vojtěch Hubáček: doplnění registrace instancí, runtime stavů, statického obohacení a zpracování dat o lince v daný čas dne.
  */
 package main
 

@@ -1,3 +1,15 @@
+/**
+ * @file ws_source.go
+ * @brief Příjem a zpracování živých MHD dat z WebSocket zdroje.
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ * @ingroup riot_mhd_preprocessor
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: původní příjem zpráv ze zdroje.
+ * - Vojtěch Hubáček: doplnění párování na statická data, aktualizace runtime stavu a publikace rozšířených záznamů.
+ */
 package main
 
 import (

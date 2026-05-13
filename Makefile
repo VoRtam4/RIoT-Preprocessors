@@ -1,9 +1,15 @@
 # @file Makefile
 # @brief Makefile pro společnou správu hlavního RIoT stacku a preprocesorů.
+#
+# @author Dominik Vondruška
 # @author Vojtěch Hubáček
+#
 # @defgroup riot_preprocessors RIoT preprocesory
 # @see README.md
-
+#
+# @par Autorský podíl
+# - Dominik Vondruška: původní provozní koncept preprocesorů napojených na RIoT.
+# - Vojtěch Hubáček: úprava pro oddělený repozitář, parametrizaci cesty k RIoT a společné spouštění obou stacků.
 COMPOSE ?= docker compose
 RIOT_DIR ?= ../RIoT
 DOCKER_DIR ?= docker

@@ -1,3 +1,13 @@
+/**
+ * @file tmc.go
+ * @brief Načítání a mapování TMC statických dat pro obohacení NDIC segmentů.
+ *
+ * @author Vojtěch Hubáček
+ * @ingroup riot_ndic_preprocessor
+ *
+ * @par Autorský podíl
+ * - Vojtěch Hubáček: návrh a implementace celé funkcionality souboru.
+ */
 package main
 
 import (

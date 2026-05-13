@@ -1,3 +1,13 @@
+/**
+ * @file helpers.go
+ * @brief Pomocné funkce pro normalizaci hodnot a skládání NDIC identifikátorů.
+ *
+ * @author Vojtěch Hubáček
+ * @ingroup riot_ndic_preprocessor
+ *
+ * @par Autorský podíl
+ * - Vojtěch Hubáček: návrh a implementace pomocných funkcí pro rozšířený NDIC model.
+ */
 package main
 
 import (

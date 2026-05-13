@@ -1,3 +1,13 @@
+/**
+ * @file helpers.go
+ * @brief Pomocné funkce pro normalizaci, časové převody a skládání hodnot MHD preprocesoru.
+ *
+ * @author Vojtěch Hubáček
+ * @ingroup riot_mhd_preprocessor
+ *
+ * @par Autorský podíl
+ * - Vojtěch Hubáček: návrh a implementace pomocných funkcí pro rozšířený MHD model.
+ */
 package main
 
 import (

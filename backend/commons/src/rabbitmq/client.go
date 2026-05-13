@@ -1,10 +1,15 @@
 /**
  * @file client.go
- * @brief Sdílený RabbitMQ klient používaný RIoT preprocesory.
- * @author Vojtěch Hubáček, Michal Bureš
+ * @brief Sdílený RabbitMQ klient a pomocné operace pro komunikaci preprocesorů s RIoT.
+ *
+ * @author Vojtěch Hubáček
+ *
  * @defgroup riot_preprocessors_commons Commons
  * @ingroup riot_preprocessors
  * @see ../../README.md
+ *
+ * @par Autorský podíl
+ * - Vojtěch Hubáček: převzetí, údržba a doplnění sdílených kontraktů potřebných pro preprocesory v rámci samostatného repozitáře.
  */
 package rabbitmq
 

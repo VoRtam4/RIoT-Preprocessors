@@ -1,3 +1,13 @@
+/**
+ * @file optional.go
+ * @brief Jednoduchý typ pro volitelnou hodnotu.
+ *
+ * @author Vojtěch Hubáček
+ * @ingroup riot_preprocessors_commons
+ *
+ * @par Autorský podíl
+ * - Vojtěch Hubáček: převzetí, údržba a doplnění sdílených kontraktů potřebných pro preprocesory v rámci samostatného repozitáře.
+ */
 package sharedUtils
 
 type Optional[T any] struct {

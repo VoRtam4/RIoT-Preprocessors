@@ -1,3 +1,15 @@
+/**
+ * @file model.go
+ * @brief Datové struktury NDIC preprocesoru pro DATEX snapshoty, TMC metadata a runtime stav.
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ * @ingroup riot_ndic_preprocessor
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: základní model transformovaných NDIC záznamů.
+ * - Vojtěch Hubáček: rozšíření modelu o EventTime, TMC metadata, tagy a runtime stav silničních segmentů.
+ */
 package main
 
 import "time"

@@ -1,7 +1,12 @@
 """
-@File: parser.py
-@Author: Dominik Vondruška
-@Project: Bakalářská práce — Systém pro monitorování otevřených dat v reálném čase
+@file parser.py
+@brief Pomocné zpracování a validace DATEX II XML zpráv.
+
+@author Dominik Vondruška
+@ingroup riot_datex_downloader
+
+@par Autorský podíl
+- Dominik Vondruška: návrh a implementace celé funkcionality souboru.
 """
 import xml.etree.ElementTree as ET
 

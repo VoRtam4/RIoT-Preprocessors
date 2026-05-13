@@ -1,3 +1,15 @@
+/**
+ * @file config.go
+ * @brief Konfigurace WazeJam preprocesoru a jeho napojení na zdroj dat a RIoT.
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ * @ingroup riot_wazejam_preprocessor
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: základní konfigurační vazba Waze preprocesoru na zdroj dat a RIoT.
+ * - Vojtěch Hubáček: úprava konfigurace pro segmentový model instancí a rozšířené publikované hodnoty.
+ */
 package main
 
 import "os"

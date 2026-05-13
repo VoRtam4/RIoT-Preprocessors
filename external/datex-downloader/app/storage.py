@@ -1,8 +1,12 @@
 """
-@File: storage.py
-@Author: Dominik Vondruška
-@Project: Bakalářská práce — Systém pro monitorování otevřených dat v reálném čase
-@Description: Jednoduché in-memory uložení poslední přijaté NDIC zprávy.
+@file storage.py
+@brief In-memory úložiště poslední přijaté DATEX II zprávy.
+
+@author Dominik Vondruška
+@ingroup riot_datex_downloader
+
+@par Autorský podíl
+- Dominik Vondruška: návrh a implementace celé funkcionality souboru.
 """
 from typing import Optional
 from threading import Lock

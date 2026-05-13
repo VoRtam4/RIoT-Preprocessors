@@ -1,3 +1,15 @@
+/**
+ * @file publish.go
+ * @brief Publikace Waze segmentových instancí a datových bodů do RabbitMQ front RIoT.
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ * @ingroup riot_wazejam_preprocessor
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: základní publikace transformovaných Waze dat do RIoT.
+ * - Vojtěch Hubáček: doplnění registrace segmentových instancí, tag/field parametrů, EventTime, jam countů a raw jam payloadů.
+ */
 package main
 
 import (

@@ -1,5 +1,13 @@
-# Převzato a upraveno z projektu RIOT:
-
+# @file Dockerfile
+# @brief Docker image pro NDIC preprocesor.
+#
+# @author Dominik Vondruška
+# @author Vojtěch Hubáček
+# @ingroup riot_ndic_preprocessor
+#
+# @par Autorský podíl
+# - Dominik Vondruška: původní Docker základ preprocesoru.
+# - Vojtěch Hubáček: úprava build kontextu a runtime podoby pro samostatný repozitář preprocesorů.
 # Use an official Go runtime as a parent image
 FROM golang:1.22-alpine
 # Set the working directory inside the container

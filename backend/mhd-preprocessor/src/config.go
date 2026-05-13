@@ -1,3 +1,15 @@
+/**
+ * @file config.go
+ * @brief Konfigurace MHD preprocesoru a parametrů zpracování živých a statických dat.
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ * @ingroup riot_mhd_preprocessor
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: základní konfigurační vazba preprocesoru na zdroj dat a RIoT.
+ * - Vojtěch Hubáček: doplnění konfigurace GTFS obohacení, časového párování, runtime stavů a modelu linek v čase.
+ */
 package main
 
 import (

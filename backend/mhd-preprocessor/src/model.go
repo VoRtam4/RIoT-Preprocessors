@@ -1,3 +1,15 @@
+/**
+ * @file model.go
+ * @brief Datové struktury MHD preprocesoru pro živá data, GTFS metadata a runtime stav instancí.
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ * @ingroup riot_mhd_preprocessor
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: základní model transformovaných MHD záznamů.
+ * - Vojtěch Hubáček: rozšíření modelu o linkové instance, statická metadata, tagy, EventTime a stav neaktivních instancí.
+ */
 package main
 
 import "time"

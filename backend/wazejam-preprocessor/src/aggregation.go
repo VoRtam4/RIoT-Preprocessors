@@ -1,3 +1,13 @@
+/**
+ * @file aggregation.go
+ * @brief Agregace Waze jam záznamů na segmentové instance a odvozené raw hodnoty.
+ *
+ * @author Vojtěch Hubáček
+ * @ingroup riot_wazejam_preprocessor
+ *
+ * @par Autorský podíl
+ * - Vojtěch Hubáček: návrh a implementace segmentové agregace, počtu jamů na ulici a raw jam dat bez ztrátové agregace hodnot.
+ */
 package main
 
 import (

@@ -1,3 +1,13 @@
+/**
+ * @file segment.go
+ * @brief Pomocné struktury a výpočty pro segmenty a časové části MHD spojů.
+ *
+ * @author Vojtěch Hubáček
+ * @ingroup riot_mhd_preprocessor
+ *
+ * @par Autorský podíl
+ * - Vojtěch Hubáček: návrh a implementace celé funkcionality souboru.
+ */
 package main
 
 import (

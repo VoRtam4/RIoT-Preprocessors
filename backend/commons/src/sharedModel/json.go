@@ -1,3 +1,13 @@
+/**
+ * @file json.go
+ * @brief Pomocné JSON modely a porovnávání hodnot sdílené napříč RIoT komponentami.
+ *
+ * @author Vojtěch Hubáček
+ * @ingroup riot_preprocessors_commons
+ *
+ * @par Autorský podíl
+ * - Vojtěch Hubáček: převzetí, údržba a doplnění sdílených kontraktů potřebných pro preprocesory v rámci samostatného repozitáře.
+ */
 package sharedModel
 
 import (

@@ -1,3 +1,13 @@
+/**
+ * @file fpHelpers.go
+ * @brief Obecné pomocné funkce pro práci s kolekcemi a hodnotami.
+ *
+ * @author Vojtěch Hubáček
+ * @ingroup riot_preprocessors_commons
+ *
+ * @par Autorský podíl
+ * - Vojtěch Hubáček: převzetí, údržba a doplnění sdílených kontraktů potřebných pro preprocesory v rámci samostatného repozitáře.
+ */
 package sharedUtils
 
 // Map is a custom functional programming helper function useful to change the type of slice items.

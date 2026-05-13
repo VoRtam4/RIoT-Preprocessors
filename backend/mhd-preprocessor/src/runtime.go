@@ -1,3 +1,13 @@
+/**
+ * @file runtime.go
+ * @brief Runtime evidence MHD instancí a tvorba událostí při změně aktivity.
+ *
+ * @author Vojtěch Hubáček
+ * @ingroup riot_mhd_preprocessor
+ *
+ * @par Autorský podíl
+ * - Vojtěch Hubáček: návrh a implementace celé funkcionality souboru.
+ */
 package main
 
 import (

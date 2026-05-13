@@ -1,10 +1,17 @@
 /**
  * @file main.go
- * @brief Vstupní bod Waze Jam preprocesoru pro platformu RIoT.
- * @author Vojtěch Hubáček, Dominik Vondruška
- * @defgroup riot_waze_preprocessor Waze Jam preprocesor
+ * @brief Vstupní bod WazeJam preprocesoru pro platformu RIoT.
+ *
+ * @author Dominik Vondruška
+ * @author Vojtěch Hubáček
+ *
+ * @defgroup riot_wazejam_preprocessor WazeJam preprocesor
  * @ingroup riot_preprocessors
  * @see ../README.md
+ *
+ * @par Autorský podíl
+ * - Dominik Vondruška: původní spuštění Waze preprocesoru a jeho integračního cyklu.
+ * - Vojtěch Hubáček: úprava spuštění pro segmentový model instancí a rozšířené zpracování Waze jam dat.
  */
 package main
 

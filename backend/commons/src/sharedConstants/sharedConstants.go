@@ -1,3 +1,13 @@
+/**
+ * @file sharedConstants.go
+ * @brief Sdílené názvy front, endpointů a konstant používané preprocesory a RIoT službami.
+ *
+ * @author Vojtěch Hubáček
+ * @ingroup riot_preprocessors_commons
+ *
+ * @par Autorský podíl
+ * - Vojtěch Hubáček: převzetí, údržba a doplnění sdílených kontraktů potřebných pro preprocesory v rámci samostatného repozitáře.
+ */
 package sharedConstants
 
 const (

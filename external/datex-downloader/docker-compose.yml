@@ -1,3 +1,11 @@
+## @file docker-compose.yml
+# @brief Lokální Docker Compose sestava DATEX downloaderu.
+#
+# @author Dominik Vondruška
+# @ingroup riot_datex_downloader
+#
+# @par Autorský podíl
+# - Dominik Vondruška: návrh a implementace celé provozní konfigurace souboru.
 version: "3"
 services:
   datex-server:

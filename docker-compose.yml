@@ -1,9 +1,15 @@
 ## @file docker-compose.yml
-#  @brief Docker Compose sestava preprocesorů napojených na platformu RIoT.
-#  @author Vojtěch Hubáček
-#  @defgroup riot_preprocessors RIoT preprocesory
-#  @see README.md
-
+# @brief Docker Compose sestava preprocesorů napojených na platformu RIoT.
+#
+# @author Dominik Vondruška
+# @author Vojtěch Hubáček
+#
+# @defgroup riot_preprocessors RIoT preprocesory
+# @see README.md
+#
+# @par Autorský podíl
+# - Dominik Vondruška: původní compose základ integračních preprocesorů.
+# - Vojtěch Hubáček: úprava pro samostatné vedení preprocesorů, napojení na RIoT služby a aktuální sestavu modulů.
 services:
   myrta-ndic-preprocessor:
     build:

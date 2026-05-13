@@ -1,10 +1,15 @@
 """
 @file main.py
-@brief FastAPI přijímač DATEX II zpráv používaný NDIC preprocesorem.
-@author Vojtěch Hubáček, Dominik Vondruška
+@brief FastAPI přijímač a výdej poslední DATEX II zprávy pro NDIC preprocesor.
+
+@author Dominik Vondruška
+
 @defgroup riot_datex_downloader DATEX Downloader
 @ingroup riot_preprocessors
 @see ../README.md
+
+@par Autorský podíl
+- Dominik Vondruška: návrh a implementace celé funkcionality souboru.
 """
 from datetime import datetime, timezone
 import gzip

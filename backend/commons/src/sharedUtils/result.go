@@ -1,3 +1,13 @@
+/**
+ * @file result.go
+ * @brief Jednoduchý typ pro návrat hodnoty nebo chyby.
+ *
+ * @author Vojtěch Hubáček
+ * @ingroup riot_preprocessors_commons
+ *
+ * @par Autorský podíl
+ * - Vojtěch Hubáček: převzetí, údržba a doplnění sdílených kontraktů potřebných pro preprocesory v rámci samostatného repozitáře.
+ */
 package sharedUtils
 
 type Result[T any] struct {

@@ -1,3 +1,13 @@
+/**
+ * @file set.go
+ * @brief Jednoduchá množinová datová struktura.
+ *
+ * @author Vojtěch Hubáček
+ * @ingroup riot_preprocessors_commons
+ *
+ * @par Autorský podíl
+ * - Vojtěch Hubáček: převzetí, údržba a doplnění sdílených kontraktů potřebných pro preprocesory v rámci samostatného repozitáře.
+ */
 package sharedUtils
 
 type Set[T comparable] struct {

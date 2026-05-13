@@ -1,3 +1,11 @@
+## @file render.yaml
+# @brief Deploy konfigurace DATEX downloaderu pro Render.
+#
+# @author Dominik Vondruška
+# @ingroup riot_datex_downloader
+#
+# @par Autorský podíl
+# - Dominik Vondruška: návrh a implementace celé provozní konfigurace souboru.
 services:
   - type: web
     name: datex-downloader
